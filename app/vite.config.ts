@@ -46,6 +46,25 @@ const apiMiddlewarePlugin = {
         res.status(201).json(newReview);
     });
 
+    app.put('/api/reviews/:id', (req, res) => {
+        const { id } = req.params;
+        const reviewIndex = reviews.findIndex(r => r.id === id);
+
+        if (reviewIndex === -1) {
+            return res.status(404).send('Review not found');
+        }
+
+        // Update the review with the new data
+        const originalReview = reviews[reviewIndex];
+        const updatedReview = {
+            ...originalReview,
+            ...req.body,
+        };
+        reviews[reviewIndex] = updatedReview;
+
+        res.json(updatedReview);
+    });
+
     app.put('/api/reviews/:reviewId/stages/:stageId/assignments/:reviewerId', (req, res) => {
         const { reviewId, stageId, reviewerId } = req.params;
         const { status } = req.body as { status: ReviewStatusValue };

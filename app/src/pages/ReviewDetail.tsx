@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom'; // Import Link
 import { ReviewRequest, ReviewStatusValue } from '../types';
 
 function ReviewDetail() {
@@ -76,11 +76,14 @@ function ReviewDetail() {
 
   return (
     <div className="card">
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{ marginBottom: '0.25rem' }}>{review.title}</h1>
-        <p style={{ margin: 0, color: 'var(--secondary-color)' }}>
-            依頼者: <strong>{review.author.name}</strong> / 作成日時: {new Date(review.createdAt).toLocaleString()}
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <div>
+            <h1 style={{ marginBottom: '0.25rem' }}>{review.title}</h1>
+            <p style={{ margin: 0, color: 'var(--secondary-color)' }}>
+                依頼者: <strong>{review.author.name}</strong> / 作成日時: {new Date(review.createdAt).toLocaleString()}
+            </p>
+        </div>
+        <Link to={`/reviews/${review.id}/edit`} className="button">編集</Link>
       </div>
 
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>

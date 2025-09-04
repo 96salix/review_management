@@ -1,7 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import ReviewList from './pages/ReviewList';
+import MyReviews from './pages/MyReviews';
 import ReviewDetail from './pages/ReviewDetail';
 import NewReview from './pages/NewReview';
+import EditReview from './pages/EditReview'; // Import EditReview
 
 const Header = () => (
   <header style={{
@@ -19,6 +21,7 @@ const Header = () => (
     </Link>
     <nav>
       <Link to="/" className="button" style={{ marginRight: '1rem' }}>レビュー一覧</Link>
+      <Link to="/my-reviews" className="button" style={{ marginRight: '1rem' }}>自分のレビュー</Link>
       <Link to="/new" className="button">新規作成</Link>
     </nav>
   </header>
@@ -42,7 +45,9 @@ function App() {
       <MainContent>
         <Routes>
           <Route path="/" element={<ReviewList />} />
+          <Route path="/my-reviews" element={<MyReviews />} />
           <Route path="/reviews/:id" element={<ReviewDetail />} />
+          <Route path="/reviews/:id/edit" element={<EditReview />} />
           <Route path="/new" element={<NewReview />} />
         </Routes>
       </MainContent>
