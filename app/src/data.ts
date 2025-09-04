@@ -160,7 +160,7 @@ export interface StageTemplate {
   }[];
 }
 
-export let stageTemplates: StageTemplate[] = [
+export const stageTemplates: StageTemplate[] = [
   {
     id: 'template-1',
     name: '標準レビュー (1st Round, Security)',

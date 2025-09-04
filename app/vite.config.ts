@@ -195,7 +195,7 @@ const apiMiddlewarePlugin = {
         name: req.body.name,
         stages: req.body.stages,
       };
-      stageTemplates.push(newTemplate);
+      stageTemplates.push(newTemplate); // Use push for const array
       res.status(201).json(newTemplate);
     });
 
@@ -206,14 +206,15 @@ const apiMiddlewarePlugin = {
         return res.status(404).send('Template not found');
       }
       const updatedTemplate = { ...stageTemplates[templateIndex], ...req.body };
-      stageTemplates[templateIndex] = updatedTemplate;
+      stageTemplates[templateIndex] = updatedTemplate; // Directly update the element
       res.json(updatedTemplate);
     });
 
     app.delete('/api/stage-templates/:id', (req, res) => {
       const { id } = req.params;
       const initialLength = stageTemplates.length;
-      stageTemplates = stageTemplates.filter(t => t.id !== id);
+      // Use splice to modify in place for const array
+      stageTemplates.splice(0, stageTemplates.length, ...stageTemplates.filter(t => t.id !== id));
       if (stageTemplates.length === initialLength) {
         return res.status(404).send('Template not found');
       }

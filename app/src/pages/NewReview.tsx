@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'; // Import useEffect
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { users } from '../data';
 import { User, StageTemplate } from '../types'; // Import StageTemplate
 
 interface StageFormState {
@@ -19,6 +18,22 @@ function NewReview() {
   const [error, setError] = useState<string | null>(null);
   const [stageTemplates, setStageTemplates] = useState<StageTemplate[]>([]); // New state for templates
   const [selectedTemplateId, setSelectedTemplateId] = useState(''); // New state for selected template
+  const [allUsers, setAllUsers] = useState<User[]>([]); // New state for all users
+
+  // Fetch all users on component mount
+  useEffect(() => {
+    const fetchAllUsers = async () => {
+      try {
+        const response = await fetch('/api/users');
+        if (!response.ok) throw new Error('Failed to fetch users');
+        const data = await response.json();
+        setAllUsers(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred while fetching users');
+      }
+    };
+    fetchAllUsers();
+  }, []);
 
   // Fetch stage templates on component mount
   useEffect(() => {
@@ -94,7 +109,7 @@ function NewReview() {
       name: stage.name,
       repositoryUrl: stage.repositoryUrl,
       assignments: stage.reviewerIds.map(reviewerId => ({
-        reviewer: users.find(u => u.id === reviewerId)!,
+        reviewer: allUsers.find(u => u.id === reviewerId)!,
         status: 'pending' as const,
       })),
       comments: [],
@@ -177,7 +192,7 @@ function NewReview() {
             <div>
               <label>レビュアー</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                {users.map(user => (
+                {allUsers.map(user => (
                   <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'normal' }}>
                     <input
                       type="checkbox"

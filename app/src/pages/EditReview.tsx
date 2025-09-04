@@ -24,7 +24,7 @@ function EditReview() {
     const fetchStageTemplates = async () => {
       try {
         const response = await fetch('/api/stage-templates');
-        if (!response.ok) throw new Error('Failed to fetch stage templates');
+        if (!response.ok) throw new Error('Failed to fetch templates');
         const data = await response.json();
         setStageTemplates(data);
       } catch (err) {
