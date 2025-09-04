@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom'; // Import Link
+import { useParams, Link } from 'react-router-dom';
 import { ReviewRequest, ReviewStatusValue } from '../types';
+import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
 
 function ReviewDetail() {
   const { id } = useParams<{ id: string }>();
@@ -113,17 +114,12 @@ function ReviewDetail() {
             <ul style={{ listStyle: 'none', padding: 0 }}>
               {activeStage.assignments.map(assignment => (
                 <li key={assignment.reviewer.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <img src={assignment.reviewer.avatarUrl} alt={assignment.reviewer.name} style={{ width: '32px', height: '32px', borderRadius: '50%', marginRight: '0.75rem' }} />
+                  <img src={assignment.reviewer.avatarUrl} alt={assignment.reviewer.name} style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '0.5rem' }} />
                   <span style={{ flex: 1 }}>{assignment.reviewer.name}</span>
-                  <select
-                      value={assignment.status}
-                      onChange={(e) => handleStatusChange(assignment.reviewer.id, e.target.value as ReviewStatusValue)}
-                  >
-                      <option value="pending">未着手</option>
-                      <option value="reviewing">レビュー中</option>
-                      <option value="commented">コメントあり</option>
-                      <option value="approved">承認</option>
-                  </select>
+                  <StatusSelector 
+                    currentStatus={assignment.status} 
+                    onStatusChange={(newStatus) => handleStatusChange(assignment.reviewer.id, newStatus)} 
+                  />
                 </li>
               ))}
             </ul>

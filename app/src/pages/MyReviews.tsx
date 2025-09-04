@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ReviewRequest, ReviewAssignment, ReviewStage, ReviewStatusValue } from '../types';
 import { users } from '../data';
+import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
 
 // Define a new shape for the component's state
 interface GroupedReview {
@@ -89,16 +90,10 @@ function MyReviews() {
                     </div>
                     <div>
                         <label><strong>自分のステータス:</strong></label>
-                        <select
-                            value={assignment.status}
-                            onChange={(e) => handleStatusChange(review.id, stage.id, e.target.value as ReviewStatusValue)}
-                            style={{ width: '100%' }}
-                        >
-                            <option value="pending">未着手</option>
-                            <option value="reviewing">レビュー中</option>
-                            <option value="commented">コメントあり</option>
-                            <option value="approved">承認</option>
-                        </select>
+                        <StatusSelector 
+                            currentStatus={assignment.status} 
+                            onStatusChange={(newStatus) => handleStatusChange(review.id, stage.id, newStatus)} 
+                        />
                     </div>
                 </div>
               </div>
