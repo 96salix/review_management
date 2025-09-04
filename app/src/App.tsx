@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import ReviewList from './pages/ReviewList';
 import MyReviews from './pages/MyReviews';
+import UserManagement from './pages/UserManagement';
+import StageTemplateManagement from './pages/StageTemplateManagement'; // Import StageTemplateManagement
 import ReviewDetail from './pages/ReviewDetail';
 import NewReview from './pages/NewReview';
 import EditReview from './pages/EditReview'; // Import EditReview
@@ -22,6 +24,8 @@ const Header = () => (
     <nav>
       <Link to="/" className="button" style={{ marginRight: '1rem' }}>レビュー一覧</Link>
       <Link to="/my-reviews" className="button" style={{ marginRight: '1rem' }}>自分のレビュー</Link>
+      <Link to="/users" className="button" style={{ marginRight: '1rem' }}>ユーザー管理</Link>
+      <Link to="/stage-templates" className="button" style={{ marginRight: '1rem' }}>テンプレート管理</Link>
       <Link to="/new" className="button">新規作成</Link>
     </nav>
   </header>
@@ -46,6 +50,8 @@ function App() {
         <Routes>
           <Route path="/" element={<ReviewList />} />
           <Route path="/my-reviews" element={<MyReviews />} />
+          <Route path="/users" element={<UserManagement />} />
+          <Route path="/stage-templates" element={<StageTemplateManagement />} />
           <Route path="/reviews/:id" element={<ReviewDetail />} />
           <Route path="/reviews/:id/edit" element={<EditReview />} />
           <Route path="/new" element={<NewReview />} />

@@ -154,6 +154,25 @@ function ReviewDetail() {
                 <button type="submit" style={{ marginLeft: '1rem', alignSelf: 'flex-start' }}>投稿</button>
             </form>
           </div>
+
+          <div style={{ marginTop: '1.5rem' }}>
+            <h3>アクティビティ</h3>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              {review.activityLogs.map(log => (
+                <li key={log.id} style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'flex-start' }}>
+                  <img src={log.user.avatarUrl} alt={log.user.name} style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '0.5rem' }} />
+                  <div>
+                    <span style={{ fontWeight: '600' }}>{log.user.name}</span>
+                    <span style={{ color: 'var(--secondary-color)', marginLeft: '0.5rem', fontSize: '0.85em' }}>
+                      {new Date(log.createdAt).toLocaleString()}
+                    </span>
+                    <p style={{ margin: '0.2rem 0 0' }}>{log.details}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+
         </div>
       )}
     </div>

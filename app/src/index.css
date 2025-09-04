@@ -98,6 +98,12 @@ label {
     margin-bottom: 0.75rem; /* Tighter margin */
 }
 
+.lgtm-card {
+    background-color: #e9ecef; /* Light gray for LGTM cards */
+    border-color: #ced4da;
+}
+
+
 /* Status Selector Styles */
 .status-selector {
   display: flex;
@@ -127,7 +133,7 @@ label {
 }
 
 .status-selector button.pending.active { background-color: #6c757d; }
-.status-selector button.reviewing.active { background-color: #ffc107; }
 .status-selector button.commented.active { background-color: #dc3545; }
-.status-selector button.approved.active { background-color: #28a745; }
+.status-selector button.answered.active { background-color: #007bff; } /* Primary color for answered */
+.status-selector button.lgtm.active { background-color: #28a745; } /* Green for LGTM */
 

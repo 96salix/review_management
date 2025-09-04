@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Import useEffect
 import { useNavigate } from 'react-router-dom';
 import { users } from '../data';
-import { User } from '../types';
+import { User, StageTemplate } from '../types'; // Import StageTemplate
 
 interface StageFormState {
   id: number;
@@ -17,6 +17,43 @@ function NewReview() {
     { id: 1, name: '1st Round', repositoryUrl: '', reviewerIds: [] },
   ]);
   const [error, setError] = useState<string | null>(null);
+  const [stageTemplates, setStageTemplates] = useState<StageTemplate[]>([]); // New state for templates
+  const [selectedTemplateId, setSelectedTemplateId] = useState(''); // New state for selected template
+
+  // Fetch stage templates on component mount
+  useEffect(() => {
+    const fetchStageTemplates = async () => {
+      try {
+        const response = await fetch('/api/stage-templates');
+        if (!response.ok) throw new Error('Failed to fetch templates');
+        const data = await response.json();
+        setStageTemplates(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred while fetching templates');
+      }
+    };
+    fetchStageTemplates();
+  }, []);
+
+  const handleTemplateSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const templateId = e.target.value;
+    setSelectedTemplateId(templateId);
+    if (templateId) {
+      const selectedTemplate = stageTemplates.find(t => t.id === templateId);
+      if (selectedTemplate) {
+        // Apply template stages to the form
+        setStages(selectedTemplate.stages.map((s, index) => ({
+          id: Date.now() + index, // Generate new unique ID for form state
+          name: s.name,
+          repositoryUrl: '', // Repository URL is usually specific to the review, not template
+          reviewerIds: s.reviewerIds,
+        })));
+      }
+    } else {
+      // If "Select a template" is chosen, clear stages
+      setStages([{ id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [] }]);
+    }
+  };
 
   const handleStageChange = (index: number, field: keyof StageFormState, value: any) => {
     const newStages = [...stages];
@@ -53,7 +90,7 @@ function NewReview() {
     }
 
     const apiStages = stages.map((stage, index) => ({
-      id: String(Date.now() + index),
+      id: String(Date.now() + index), // Temporary unique ID
       name: stage.name,
       repositoryUrl: stage.repositoryUrl,
       assignments: stage.reviewerIds.map(reviewerId => ({
@@ -98,6 +135,20 @@ function NewReview() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label htmlFor="templateSelect">テンプレートからステージを適用</label>
+          <select
+            id="templateSelect"
+            value={selectedTemplateId}
+            onChange={handleTemplateSelect}
+          >
+            <option value="">テンプレートを選択...</option>
+            {stageTemplates.map(template => (
+              <option key={template.id} value={template.id}>{template.name}</option>
+            ))}
+          </select>
         </div>
 
         <h2>ステージ</h2>

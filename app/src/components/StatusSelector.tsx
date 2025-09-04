@@ -7,9 +7,9 @@ interface StatusSelectorProps {
 
 const statuses: { value: ReviewStatusValue; label: string }[] = [
   { value: 'pending', label: '未着手' },
-  { value: 'reviewing', label: 'レビュー中' },
   { value: 'commented', label: 'コメントあり' },
-  { value: 'approved', label: '承認' },
+  { value: 'answered', label: '回答済み' },
+  { value: 'lgtm', label: 'LGTM' },
 ];
 
 function StatusSelector({ currentStatus, onStatusChange }: StatusSelectorProps) {

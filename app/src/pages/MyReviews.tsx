@@ -41,7 +41,28 @@ function MyReviews() {
         return acc;
       }, new Map<string, GroupedReview>());
 
-      setGroupedReviews(Array.from(groupedMap.values()));
+      let sortedReviews = Array.from(groupedMap.values());
+
+      // Apply sorting logic here
+      const statusOrder = {
+        'pending': 1,
+        'answered': 2,
+        'commented': 3,
+        'lgtm': 4,
+      };
+
+      sortedReviews.sort((a, b) => {
+        const aWorstStatus = Math.min(...a.myAssignments.map(assign => statusOrder[assign.assignment.status]));
+        const bWorstStatus = Math.min(...b.myAssignments.map(assign => statusOrder[assign.assignment.status]));
+
+        if (aWorstStatus !== bWorstStatus) {
+          return aWorstStatus - bWorstStatus;
+        }
+
+        return new Date(b.review.createdAt).getTime() - new Date(a.review.createdAt).getTime();
+      });
+
+      setGroupedReviews(sortedReviews);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
@@ -60,7 +81,26 @@ function MyReviews() {
             body: JSON.stringify({ status: newStatus }),
         });
         if (!response.ok) throw new Error('Failed to update status');
-        fetchData(); // Refetch data to update the UI
+        // Instead, update the state directly
+        setGroupedReviews(prevGroupedReviews => {
+            return prevGroupedReviews.map(group => {
+                if (group.review.id === reviewId) {
+                    return {
+                        ...group,
+                        myAssignments: group.myAssignments.map(assign => {
+                            if (assign.stage.id === stageId && assign.assignment.reviewer.id === currentUserId) {
+                                return {
+                                    ...assign,
+                                    assignment: { ...assign.assignment, status: newStatus }
+                                };
+                            }
+                            return assign;
+                        })
+                    };
+                }
+                return group;
+            });
+        });
     } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
@@ -75,7 +115,7 @@ function MyReviews() {
       <h1>自分のレビュー</h1>
       <div>
         {groupedReviews.length > 0 ? groupedReviews.map(({ review, myAssignments }) => (
-          <div key={review.id} className="card">
+          <div key={review.id} className={`card ${myAssignments.every(a => a.assignment.status === 'lgtm') ? 'lgtm-card' : ''}`}>
             <h2 style={{ marginBottom: '1rem' }}>
                 <Link to={`/reviews/${review.id}`}>{review.title}</Link>
             </h2>
