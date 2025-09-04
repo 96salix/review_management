@@ -108,7 +108,7 @@ function EditReview() {
     <div className="card">
       <h1>レビュー依頼を編集</h1>
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '1.5rem' }}>
+        <div style={{ marginBottom: '1rem' }}>
           <label htmlFor="title">タイトル</label>
           <input
             id="title"
@@ -125,7 +125,7 @@ function EditReview() {
               <h3>ステージ {index + 1}</h3>
               {stages.length > 1 && <button type="button" onClick={() => removeStage(index)}>削除</button>}
             </div>
-            <div style={{ marginBottom: '1rem' }}>
+            <div style={{ marginBottom: '0.75rem' }}>
               <label>ステージ名</label>
               <input
                 type="text"
@@ -133,7 +133,7 @@ function EditReview() {
                 onChange={(e) => handleStageChange(index, 'name', e.target.value)}
               />
             </div>
-            <div style={{ marginBottom: '1rem' }}>
+            <div style={{ marginBottom: '0.75rem' }}>
               <label>リポジトリURL</label>
               <input
                 type="text"

@@ -80,7 +80,7 @@ function MyReviews() {
             </h2>
             {myAssignments.map(({ stage, assignment }) => (
               <div key={stage.id} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                     <div>
                         <p style={{ margin: 0 }}><strong>ステージ:</strong> {stage.name}</p>
                         <p style={{ margin: '0.5rem 0' }}>

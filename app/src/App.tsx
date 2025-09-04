@@ -8,13 +8,13 @@ import EditReview from './pages/EditReview'; // Import EditReview
 const Header = () => (
   <header style={{
     backgroundColor: 'var(--surface-color)',
-    padding: '1rem 2rem',
+    padding: '0.5rem 1rem', // Further reduced padding
     borderBottom: '1px solid var(--border-color)',
     boxShadow: 'var(--shadow)',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '2rem'
+    marginBottom: '1rem' // Further reduced margin
   }}>
     <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-color)' }}>
       <h1 style={{ fontSize: '1.5rem', margin: 0 }}>レビュー管理</h1>

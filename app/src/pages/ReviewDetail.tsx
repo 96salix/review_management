@@ -76,7 +76,7 @@ function ReviewDetail() {
 
   return (
     <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <div>
             <h1 style={{ marginBottom: '0.25rem' }}>{review.title}</h1>
             <p style={{ margin: 0, color: 'var(--secondary-color)' }}>
@@ -86,7 +86,7 @@ function ReviewDetail() {
         <Link to={`/reviews/${review.id}/edit`} className="button">編集</Link>
       </div>
 
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '0.75rem' }}>
         {review.stages.map(stage => (
           <button
             key={stage.id}
@@ -108,7 +108,7 @@ function ReviewDetail() {
 
       {activeStage && (
         <div>
-          <div style={{ marginBottom: '2rem' }}>
+          <div style={{ marginBottom: '1rem' }}>
             <h3>レビュアー</h3>
             <ul style={{ listStyle: 'none', padding: 0 }}>
               {activeStage.assignments.map(assignment => (
@@ -131,11 +131,11 @@ function ReviewDetail() {
 
           <div>
             <h3>コメント</h3>
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '0.75rem' }}>
               {activeStage.comments.length > 0 ? activeStage.comments.map(comment => (
-                <div key={comment.id} style={{ display: 'flex', marginBottom: '1rem' }}>
-                  <img src={comment.author.avatarUrl} alt={comment.author.name} style={{ width: '40px', height: '40px', borderRadius: '50%', marginRight: '1rem' }} />
-                  <div style={{ flex: 1, background: '#f1f1f1', padding: '1rem', borderRadius: 'var(--border-radius)' }}>
+                <div key={comment.id} style={{ display: 'flex', marginBottom: '0.5rem' }}>
+                  <img src={comment.author.avatarUrl} alt={comment.author.name} style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '0.5rem' }} />
+                  <div style={{ flex: 1, background: '#f1f1f1', padding: '0.5rem', borderRadius: 'var(--border-radius)' }}>
                     <p style={{ margin: 0, fontWeight: '600' }}>
                       {comment.author.name}
                       <span style={{ color: 'var(--secondary-color)', fontWeight: 'normal', marginLeft: '0.5rem' }}>
