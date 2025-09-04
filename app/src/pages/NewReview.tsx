@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { users } from '../data';
 import { User } from '../types';
 
-// A simplified version of the stage for the form state
 interface StageFormState {
   id: number;
   name: string;
@@ -53,9 +52,8 @@ function NewReview() {
       return;
     }
 
-    // Transform form state to the format expected by the API
     const apiStages = stages.map((stage, index) => ({
-      id: String(Date.now() + index), // Temporary unique ID
+      id: String(Date.now() + index),
       name: stage.name,
       repositoryUrl: stage.repositoryUrl,
       assignments: stage.reviewerIds.map(reviewerId => ({
@@ -89,49 +87,47 @@ function NewReview() {
   };
 
   return (
-    <div>
+    <div className="card">
       <h1>New Review Request</h1>
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Title</label>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label htmlFor="title">Title</label>
           <input
+            id="title"
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem' }}
           />
         </div>
 
         <h2>Stages</h2>
         {stages.map((stage, index) => (
-          <div key={stage.id} style={{ border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div key={stage.id} className="card" style={{ background: '#f8f9fa' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3>Stage {index + 1}</h3>
               {stages.length > 1 && <button type="button" onClick={() => removeStage(index)}>Remove</button>}
             </div>
-            <div style={{ marginBottom: '0.5rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <label>Stage Name</label>
               <input
                 type="text"
                 value={stage.name}
                 onChange={(e) => handleStageChange(index, 'name', e.target.value)}
-                style={{ width: '100%', padding: '0.5rem' }}
               />
             </div>
-            <div style={{ marginBottom: '0.5rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <label>Repository URL</label>
               <input
                 type="text"
                 value={stage.repositoryUrl}
                 onChange={(e) => handleStageChange(index, 'repositoryUrl', e.target.value)}
-                style={{ width: '100%', padding: '0.5rem' }}
               />
             </div>
             <div>
               <label>Reviewers</label>
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                 {users.map(user => (
-                  <label key={user.id}>
+                  <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'normal' }}>
                     <input
                       type="checkbox"
                       checked={stage.reviewerIds.includes(user.id)}
@@ -145,11 +141,9 @@ function NewReview() {
           </div>
         ))}
 
-        <button type="button" onClick={addStage}>Add Stage</button>
+        <button type="button" onClick={addStage} style={{ marginBottom: '1.5rem' }}>Add Stage</button>
 
-        <hr style={{ margin: '2rem 0' }} />
-
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {error && <p style={{ color: 'red', marginBottom: '1.5rem' }}>{error}</p>}
 
         <button type="submit">Create Review Request</button>
       </form>
