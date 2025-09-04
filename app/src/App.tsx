@@ -15,11 +15,11 @@ const Header = () => (
     marginBottom: '2rem'
   }}>
     <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-color)' }}>
-      <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Review Management</h1>
+      <h1 style={{ fontSize: '1.5rem', margin: 0 }}>レビュー管理</h1>
     </Link>
     <nav>
-      <Link to="/" className="button" style={{ marginRight: '1rem' }}>Review Requests</Link>
-      <Link to="/new" className="button">New Request</Link>
+      <Link to="/" className="button" style={{ marginRight: '1rem' }}>レビュー一覧</Link>
+      <Link to="/new" className="button">新規作成</Link>
     </nav>
   </header>
 );

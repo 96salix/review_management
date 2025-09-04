@@ -34,7 +34,7 @@ function ReviewList() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1>Review Requests</h1>
+        <h1>レビュー依頼一覧</h1>
         {/* This button is now in the header, so we can remove it from here */}
         {/* <Link to="/new" className="button">New Review Request</Link> */}
       </div>
@@ -47,7 +47,7 @@ function ReviewList() {
                         <Link to={`/reviews/${review.id}`}>{review.title}</Link>
                     </h2>
                     <p style={{ margin: 0, color: 'var(--secondary-color)' }}>
-                        by <strong>{review.author.name}</strong> on {new Date(review.createdAt).toLocaleDateString()}
+                        依頼者: <strong>{review.author.name}</strong> / 作成日: {new Date(review.createdAt).toLocaleDateString()}
                     </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>

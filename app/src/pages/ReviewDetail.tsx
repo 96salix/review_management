@@ -79,7 +79,7 @@ function ReviewDetail() {
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ marginBottom: '0.25rem' }}>{review.title}</h1>
         <p style={{ margin: 0, color: 'var(--secondary-color)' }}>
-            Opened by <strong>{review.author.name}</strong> on {new Date(review.createdAt).toLocaleString()}
+            依頼者: <strong>{review.author.name}</strong> / 作成日時: {new Date(review.createdAt).toLocaleString()}
         </p>
       </div>
 
@@ -106,7 +106,7 @@ function ReviewDetail() {
       {activeStage && (
         <div>
           <div style={{ marginBottom: '2rem' }}>
-            <h3>Reviewers</h3>
+            <h3>レビュアー</h3>
             <ul style={{ listStyle: 'none', padding: 0 }}>
               {activeStage.assignments.map(assignment => (
                 <li key={assignment.reviewer.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
@@ -116,10 +116,10 @@ function ReviewDetail() {
                       value={assignment.status}
                       onChange={(e) => handleStatusChange(assignment.reviewer.id, e.target.value as ReviewStatusValue)}
                   >
-                      <option value="pending">Pending</option>
-                      <option value="reviewing">Reviewing</option>
-                      <option value="commented">Commented</option>
-                      <option value="approved">Approved</option>
+                      <option value="pending">未着手</option>
+                      <option value="reviewing">レビュー中</option>
+                      <option value="commented">コメントあり</option>
+                      <option value="approved">承認</option>
                   </select>
                 </li>
               ))}
@@ -127,7 +127,7 @@ function ReviewDetail() {
           </div>
 
           <div>
-            <h3>Comments</h3>
+            <h3>コメント</h3>
             <div style={{ marginBottom: '1.5rem' }}>
               {activeStage.comments.length > 0 ? activeStage.comments.map(comment => (
                 <div key={comment.id} style={{ display: 'flex', marginBottom: '1rem' }}>
@@ -136,23 +136,23 @@ function ReviewDetail() {
                     <p style={{ margin: 0, fontWeight: '600' }}>
                       {comment.author.name}
                       <span style={{ color: 'var(--secondary-color)', fontWeight: 'normal', marginLeft: '0.5rem' }}>
-                        commented at {new Date(comment.createdAt).toLocaleString()}
+                        コメント日時: {new Date(comment.createdAt).toLocaleString()}
                       </span>
                     </p>
                     {comment.lineNumber && <p style={{ margin: '0.5rem 0 0', color: 'var(--secondary-color)' }}>Line: {comment.lineNumber}</p>}
                     <p style={{ margin: '0.5rem 0 0' }}>{comment.content}</p>
                   </div>
                 </div>
-              )) : <p>No comments yet.</p>}
+              )) : <p>まだコメントはありません。</p>}
             </div>
             <form onSubmit={handleCommentSubmit} style={{ display: 'flex' }}>
                 <textarea
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Add a comment..."
+                    placeholder="コメントを追加..."
                     rows={3}
                 />
-                <button type="submit" style={{ marginLeft: '1rem', alignSelf: 'flex-start' }}>Post</button>
+                <button type="submit" style={{ marginLeft: '1rem', alignSelf: 'flex-start' }}>投稿</button>
             </form>
           </div>
         </div>

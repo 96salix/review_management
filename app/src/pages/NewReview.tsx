@@ -48,7 +48,7 @@ function NewReview() {
     setError(null);
 
     if (!title.trim()) {
-      setError('Title is required.');
+      setError('タイトルは必須です。');
       return;
     }
 
@@ -88,10 +88,10 @@ function NewReview() {
 
   return (
     <div className="card">
-      <h1>New Review Request</h1>
+      <h1>新規レビュー依頼</h1>
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '1.5rem' }}>
-          <label htmlFor="title">Title</label>
+          <label htmlFor="title">タイトル</label>
           <input
             id="title"
             type="text"
@@ -100,15 +100,15 @@ function NewReview() {
           />
         </div>
 
-        <h2>Stages</h2>
+        <h2>ステージ</h2>
         {stages.map((stage, index) => (
           <div key={stage.id} className="card" style={{ background: '#f8f9fa' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3>Stage {index + 1}</h3>
-              {stages.length > 1 && <button type="button" onClick={() => removeStage(index)}>Remove</button>}
+              <h3>ステージ {index + 1}</h3>
+              {stages.length > 1 && <button type="button" onClick={() => removeStage(index)}>削除</button>}
             </div>
             <div style={{ marginBottom: '1rem' }}>
-              <label>Stage Name</label>
+              <label>ステージ名</label>
               <input
                 type="text"
                 value={stage.name}
@@ -116,7 +116,7 @@ function NewReview() {
               />
             </div>
             <div style={{ marginBottom: '1rem' }}>
-              <label>Repository URL</label>
+              <label>リポジトリURL</label>
               <input
                 type="text"
                 value={stage.repositoryUrl}
@@ -124,7 +124,7 @@ function NewReview() {
               />
             </div>
             <div>
-              <label>Reviewers</label>
+              <label>レビュアー</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                 {users.map(user => (
                   <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'normal' }}>
@@ -141,11 +141,11 @@ function NewReview() {
           </div>
         ))}
 
-        <button type="button" onClick={addStage} style={{ marginBottom: '1.5rem' }}>Add Stage</button>
+        <button type="button" onClick={addStage} style={{ marginBottom: '1.5rem' }}>ステージを追加</button>
 
         {error && <p style={{ color: 'red', marginBottom: '1.5rem' }}>{error}</p>}
 
-        <button type="submit">Create Review Request</button>
+        <button type="submit">レビュー依頼を作成</button>
       </form>
     </div>
   );
