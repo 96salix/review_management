@@ -59,3 +59,18 @@ export interface ReviewRequest {
   stages: ReviewStage[];
   activityLogs: ActivityLog[];
 }
+
+// --- Stage Template ---
+
+// ステージテンプレートのステージ定義
+export interface TemplateStage {
+  name: string;
+  reviewerIds: string[];
+}
+
+// ステージテンプレート
+export interface StageTemplate {
+  id: string;
+  name: string;
+  stages: TemplateStage[];
+}

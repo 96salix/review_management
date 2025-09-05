@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { StageTemplate, User } from '../types';
-import { users } from '../data'; // To display reviewer names
 
 interface StageFormState {
   name: string;
@@ -9,6 +8,7 @@ interface StageFormState {
 
 function StageTemplateManagement() {
   const [templates, setTemplates] = useState<StageTemplate[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [newTemplate, setNewTemplate] = useState({ name: '', stages: [{ name: '', reviewerIds: [] }] });
   const [editingTemplate, setEditingTemplate] = useState<StageTemplate | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -24,8 +24,21 @@ function StageTemplateManagement() {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/users');
+      if (!response.ok) throw new Error('Failed to fetch users');
+      const data = await response.json();
+      setAllUsers(data);
+    } catch (err) {
+      // Non-critical error, maybe just log it
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchTemplates();
+    fetchUsers();
   }, []);
 
   const handleTemplateStageChange = (templateIndex: number, stageIndex: number, field: keyof StageFormState, value: any) => {
@@ -181,7 +194,7 @@ function StageTemplateManagement() {
               <div>
                 <label>レビュアー</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                  {users.map(user => (
+                  {allUsers.map(user => (
                     <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'normal' }}>
                       <input
                         type="checkbox"

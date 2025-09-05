@@ -41,6 +41,16 @@ export interface ReviewStage {
   repositoryUrl: string;
 }
 
+// アクティビティログ
+export type ActivityLogType = 'CREATE' | 'STATUS_CHANGE' | 'COMMENT';
+export interface ActivityLog {
+    id: string;
+    type: ActivityLogType;
+    user: User;
+    details: string;
+    createdAt: string;
+}
+
 // レビュー依頼
 export interface ReviewRequest {
   id: string;
@@ -48,4 +58,20 @@ export interface ReviewRequest {
   author: User;
   createdAt: string;
   stages: ReviewStage[];
+  activityLogs: ActivityLog[];
+}
+
+// --- Stage Template ---
+
+// ステージテンプレートのステージ定義
+export interface TemplateStage {
+  name: string;
+  reviewerIds: string[];
+}
+
+// ステージテンプレート
+export interface StageTemplate {
+  id: string;
+  name: string;
+  stages: TemplateStage[];
 }
