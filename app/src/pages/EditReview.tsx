@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { users } from '../data';
+
 import { ReviewRequest, StageTemplate } from '../types'; // Import StageTemplate
 
 interface StageFormState {
@@ -12,6 +12,22 @@ interface StageFormState {
 
 function EditReview() {
   const { id } = useParams<{ id: string }>();
+  const [allUsers, setAllUsers] = useState<User[]>([]); // New state for all users
+
+  // Fetch all users on component mount
+  useEffect(() => {
+    const fetchAllUsers = async () => {
+      try {
+        const response = await fetch('/api/users');
+        if (!response.ok) throw new Error('Failed to fetch users');
+        const data = await response.json();
+        setAllUsers(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred while fetching users');
+      }
+    };
+    fetchAllUsers();
+  }, []);
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [stages, setStages] = useState<StageFormState[]>([]);
@@ -113,7 +129,7 @@ function EditReview() {
       name: stage.name,
       repositoryUrl: stage.repositoryUrl,
       assignments: stage.reviewerIds.map(reviewerId => ({
-        reviewer: users.find(u => u.id === reviewerId)!,
+        reviewer: allUsers.find(u => u.id === reviewerId)!,
         status: 'pending' as const,
       })),
       comments: [], // Comments are not editable in this form
@@ -195,7 +211,7 @@ function EditReview() {
             <div>
               <label>レビュアー</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                {users.map(user => (
+                {allUsers.map(user => (
                   <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'normal' }}>
                     <input
                       type="checkbox"

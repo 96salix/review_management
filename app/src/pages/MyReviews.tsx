@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ReviewRequest, ReviewAssignment, ReviewStage, ReviewStatusValue } from '../types';
-import { users } from '../data';
+
 import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
 
 // Define a new shape for the component's state
@@ -17,7 +17,7 @@ function MyReviews() {
   const [groupedReviews, setGroupedReviews] = useState<GroupedReview[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const currentUserId = users[0].id;
+  const currentUserId = 'dummy-user-id'; // Temporarily hardcoded user ID
 
   const fetchData = async () => {
     try {

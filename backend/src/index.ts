@@ -2,59 +2,43 @@
 import express from 'express';
 import cors from 'cors';
 import { ReviewRequest, User, ReviewStatus, ReviewStatusValue, StageTemplate, ActivityLog } from './types';
+import { v4 as uuidv4 } from 'uuid';
+import { Client } from 'pg';
 
 const app = express();
 const port = 3001;
+
+// Database connection setup
+const dbConfig = {
+  user: process.env.POSTGRES_USER || 'user',
+  host: process.env.POSTGRES_HOST || 'db',
+  database: process.env.POSTGRES_DB || 'review_management',
+  password: process.env.POSTGRES_PASSWORD || 'password',
+  port: 5432,
+};
+
+const client = new Client(dbConfig);
+
+async function connectDb() {
+  try {
+    await client.connect();
+    console.log('Connected to PostgreSQL database');
+  } catch (err) {
+    console.error('Database connection error', err);
+    process.exit(1); // Exit if DB connection fails
+  }
+}
+
+connectDb();
 
 app.use(cors());
 app.use(express.json());
 
 // --- Data Store ---
 
-const users: User[] = [
-  { id: '1', name: 'Alice', avatarUrl: 'https://i.pravatar.cc/150?u=alice' },
-  { id: '2', name: 'Bob', avatarUrl: 'https://i.pravatar.cc/150?u=bob' },
-  { id: '3', name: 'Charlie', avatarUrl: 'https://i.pravatar.cc/150?u=charlie' },
-];
 
-let reviews: ReviewRequest[] = [
-  {
-    id: '1',
-    title: 'Implement feature-x',
-    author: users[0],
-    createdAt: '2024-08-30T10:00:00Z',
-    stages: [
-      {
-        id: '1-1',
-        name: '1st Round',
-        repositoryUrl: 'https://github.com/example/project/pull/123',
-        assignments: [
-          { reviewer: users[1], status: 'approved' },
-          { reviewer: users[2], status: 'commented' },
-        ],
-        comments: [
-            {
-                id: '1',
-                author: users[2],
-                content: 'This looks good, but please add a unit test.',
-                createdAt: '2024-08-30T14:20:00Z',
-                lineNumber: 25
-            }
-        ],
-      },
-      {
-        id: '1-2',
-        name: 'Security Check',
-        repositoryUrl: 'https://github.com/example/project/pull/123',
-        assignments: [
-          { reviewer: users[0], status: 'pending' },
-        ],
-        comments: [],
-      }
-    ],
-    activityLogs: [],
-  },
-];
+
+let reviews: ReviewRequest[] = [];
 
 let stageTemplates: StageTemplate[] = [];
 
@@ -65,7 +49,7 @@ const generateLogId = () => `log-${logIdCounter++}`;
 // --- Auth Simulation ---
 app.use((req, res, next) => {
   // @ts-ignore
-  req.currentUser = users[0];
+  req.currentUser = { id: 'dummy-user-id', name: 'Dummy User', avatarUrl: 'https://i.pravatar.cc/150?u=dummy' };
   next();
 });
 
@@ -193,39 +177,68 @@ app.post('/api/reviews/:reviewId/stages/:stageId/comments', (req, res) => {
 });
 
 // --- User Management API Endpoints ---
-app.get('/api/users', (req, res) => {
-  res.json(users);
-});
-
-app.post('/api/users', (req, res) => {
-  const newUser: User = {
-    id: String(users.length + 1),
-    name: req.body.name,
-    avatarUrl: req.body.avatarUrl || 'https://i.pravatar.cc/150?img=' + (users.length + 1),
-  };
-  users.push(newUser);
-  res.status(201).json(newUser);
-});
-
-app.put('/api/users/:id', (req, res) => {
-  const { id } = req.params;
-  const userIndex = users.findIndex(u => u.id === id);
-  if (userIndex === -1) {
-    return res.status(404).send('User not found');
+app.get('/api/users', async (req, res) => {
+  try {
+    const result = await client.query('SELECT * FROM users');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching users', err);
+    res.status(500).send('Internal Server Error');
   }
-  const updatedUser = { ...users[userIndex], ...req.body };
-  users[userIndex] = updatedUser;
-  res.json(updatedUser);
 });
 
-app.delete('/api/users/:id', (req, res) => {
-  const { id } = req.params;
-  const userIndex = users.findIndex(u => u.id === id);
-  if (userIndex === -1) {
-    return res.status(404).send('User not found');
+app.post('/api/users', async (req, res) => {
+  const { name, avatarUrl } = req.body;
+  const newId = uuidv4(); // UUIDを生成
+  const defaultAvatarUrl = `https://i.pravatar.cc/150?u=${newId}`;
+  const userAvatarUrl = avatarUrl || defaultAvatarUrl;
+
+  try {
+    const result = await client.query(
+      'INSERT INTO users (id, name, avatar_url) VALUES ($1, $2, $3) RETURNING *',
+      [newId, name, userAvatarUrl]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating user', err);
+    res.status(500).send('Internal Server Error');
   }
-  users.splice(userIndex, 1);
-  res.status(204).send();
+});
+
+app.put('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, avatarUrl } = req.body;
+
+  try {
+    const result = await client.query(
+      'UPDATE users SET name = COALESCE($1, name), avatar_url = COALESCE($2, avatar_url) WHERE id = $3 RETURNING *',
+      [name, avatarUrl, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).send('User not found');
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating user', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).send('User not found');
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error('Error deleting user', err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 // --- Stage Template API Endpoints ---
