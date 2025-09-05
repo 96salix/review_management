@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { ReviewRequest, StageTemplate } from '../types'; // Import StageTemplate
+import { addAuthHeader } from '../utils/api';
 
 interface StageFormState {
   id: string | number;
@@ -18,7 +19,7 @@ function EditReview() {
   useEffect(() => {
     const fetchAllUsers = async () => {
       try {
-        const response = await fetch('/api/users');
+        const response = await fetch('/api/users', addAuthHeader());
         if (!response.ok) throw new Error('Failed to fetch users');
         const data = await response.json();
         setAllUsers(data);
@@ -39,7 +40,7 @@ function EditReview() {
   useEffect(() => {
     const fetchStageTemplates = async () => {
       try {
-        const response = await fetch('/api/stage-templates');
+        const response = await fetch('/api/stage-templates', addAuthHeader());
         if (!response.ok) throw new Error('Failed to fetch templates');
         const data = await response.json();
         setStageTemplates(data);
@@ -53,7 +54,7 @@ function EditReview() {
   useEffect(() => {
     const fetchReviewForEdit = async () => {
       try {
-        const response = await fetch(`/api/reviews/${id}`);
+        const response = await fetch(`/api/reviews/${id}`, addAuthHeader());
         if (!response.ok) throw new Error('Review not found');
         const data: ReviewRequest = await response.json();
         setTitle(data.title);
@@ -136,11 +137,11 @@ function EditReview() {
     }));
 
     try {
-      const response = await fetch(`/api/reviews/${id}`, {
+      const response = await fetch(`/api/reviews/${id}`, addAuthHeader({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, stages: apiStages }),
-      });
+      }));
 
       if (!response.ok) {
         throw new Error('Failed to update review request.');

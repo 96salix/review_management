@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ReviewRequest } from '../types';
+import { addAuthHeader } from '../utils/api';
 
 function ReviewList() {
   const [reviews, setReviews] = useState<ReviewRequest[]>([]);
@@ -9,7 +10,7 @@ function ReviewList() {
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const response = await fetch('/api/reviews');
+        const response = await fetch('/api/reviews', addAuthHeader());
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }

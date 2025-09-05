@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { StageTemplate, User } from '../types';
+import { addAuthHeader } from '../utils/api';
 
 interface StageFormState {
   name: string;
@@ -15,7 +16,7 @@ function StageTemplateManagement() {
 
   const fetchTemplates = async () => {
     try {
-      const response = await fetch('/api/stage-templates');
+      const response = await fetch('/api/stage-templates', addAuthHeader());
       if (!response.ok) throw new Error('Failed to fetch templates');
       const data = await response.json();
       setTemplates(data);
@@ -26,7 +27,7 @@ function StageTemplateManagement() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/users');
+      const response = await fetch('/api/users', addAuthHeader());
       if (!response.ok) throw new Error('Failed to fetch users');
       const data = await response.json();
       setAllUsers(data);
@@ -96,11 +97,11 @@ function StageTemplateManagement() {
       return;
     }
     try {
-      const response = await fetch('/api/stage-templates', {
+      const response = await fetch('/api/stage-templates', addAuthHeader({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTemplate),
-      });
+      }));
       if (!response.ok) throw new Error('Failed to add template');
       setNewTemplate({ name: '', stages: [{ name: '', reviewerIds: [] }] });
       fetchTemplates();
@@ -122,11 +123,11 @@ function StageTemplateManagement() {
       return;
     }
     try {
-      const response = await fetch(`/api/stage-templates/${editingTemplate.id}`, {
+      const response = await fetch(`/api/stage-templates/${editingTemplate.id}`, addAuthHeader({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingTemplate),
-      });
+      }));
       if (!response.ok) throw new Error('Failed to update template');
       setEditingTemplate(null);
       setNewTemplate({ name: '', stages: [{ name: '', reviewerIds: [] }] });
@@ -140,9 +141,9 @@ function StageTemplateManagement() {
     setError(null);
     if (!window.confirm('本当にこのテンプレートを削除しますか？')) return;
     try {
-      const response = await fetch(`/api/stage-templates/${id}`, {
+      const response = await fetch(`/api/stage-templates/${id}`, addAuthHeader({
         method: 'DELETE',
-      });
+      }));
       if (!response.ok) throw new Error('Failed to delete template');
       fetchTemplates();
     } catch (err) {

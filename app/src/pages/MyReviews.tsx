@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ReviewRequest, ReviewAssignment, ReviewStage, ReviewStatusValue } from '../types';
 
 import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
+import { addAuthHeader } from '../utils/api';
 
 // Define a new shape for the component's state
 interface GroupedReview {
@@ -16,12 +17,18 @@ interface GroupedReview {
 function MyReviews() {
   const [groupedReviews, setGroupedReviews] = useState<GroupedReview[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null); // State to hold current user ID
 
-  const currentUserId = 'dummy-user-id'; // Temporarily hardcoded user ID
+  useEffect(() => {
+    const storedUserId = localStorage.getItem('currentUserId');
+    if (storedUserId) {
+      setCurrentUserId(storedUserId);
+    }
+  }, []); // Run once on mount to get initial user ID
 
   const fetchData = async () => {
     try {
-      const response = await fetch('/api/reviews');
+      const response = await fetch('/api/reviews', addAuthHeader());
       if (!response.ok) throw new Error('Network response was not ok');
       const allReviews: ReviewRequest[] = await response.json();
 
@@ -70,16 +77,18 @@ function MyReviews() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (currentUserId) { // Only fetch data if currentUserId is available
+      fetchData();
+    }
+  }, [currentUserId]); // Re-fetch data when currentUserId changes
 
   const handleStatusChange = async (reviewId: string, stageId: string, newStatus: ReviewStatusValue) => {
     try {
-        const response = await fetch(`/api/reviews/${reviewId}/stages/${stageId}/assignments/${currentUserId}`, {
+        const response = await fetch(`/api/reviews/${reviewId}/stages/${stageId}/assignments/${currentUserId}`, addAuthHeader({
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus }),
-        });
+        }));
         if (!response.ok) throw new Error('Failed to update status');
         // Instead, update the state directly
         setGroupedReviews(prevGroupedReviews => {

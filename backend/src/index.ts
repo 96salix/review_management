@@ -46,15 +46,24 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
 
   const stagesResult = await client.query('SELECT * FROM review_stages WHERE review_request_id = $1 ORDER BY name', [reviewId]);
   const stages: ReviewStage[] = await Promise.all(stagesResult.rows.map(async stageRow => {
-    const assignmentsResult = await client.query('SELECT * FROM review_assignments WHERE review_stage_id = $1', [stageRow.id]);
-    const assignments: ReviewAssignment[] = await Promise.all(assignmentsResult.rows.map(async assignmentRow => {
-      const reviewerResult = await client.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [assignmentRow.reviewer_id]);
-      const reviewer = reviewerResult.rows[0] || { id: assignmentRow.reviewer_id, name: 'Unknown User', avatarUrl: '' };
+    const assignmentsResult = await client.query(`
+      SELECT ra.*, u.name AS reviewer_name, u.avatar_url AS reviewer_avatar_url
+      FROM review_assignments ra
+      JOIN users u ON ra.reviewer_id = u.id
+      WHERE ra.review_stage_id = $1
+      ORDER BY u.name
+    `, [stageRow.id]);
+    const assignments: ReviewAssignment[] = assignmentsResult.rows.map(assignmentRow => {
+      const reviewer: User = {
+        id: assignmentRow.reviewer_id,
+        name: assignmentRow.reviewer_name,
+        avatarUrl: assignmentRow.reviewer_avatar_url || `https://i.pravatar.cc/150?u=${assignmentRow.reviewer_id}`,
+      };
       return {
         reviewer: reviewer,
         status: assignmentRow.status,
       };
-    }));
+    });
 
     const commentsResult = await client.query('SELECT * FROM comments WHERE review_stage_id = $1 ORDER BY created_at', [stageRow.id]);
     const comments: Comment[] = await Promise.all(commentsResult.rows.map(async commentRow => {
@@ -133,9 +142,27 @@ let stageTemplates: StageTemplate[] = [];
 
 
 // --- Auth Simulation ---
-app.use((req, res, next) => {
-  // @ts-ignore
-  req.currentUser = { id: 'dummy-user-id', name: 'Dummy User', avatarUrl: 'https://i.pravatar.cc/150?u=dummy' };
+app.use(async (req, res, next) => {
+  const userId = req.headers['x-user-id'] as string; // フロントエンドから送られるカスタムヘッダー
+  if (userId) {
+    try {
+      const result = await client.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [userId]);
+      if (result.rows.length > 0) {
+        // @ts-ignore
+        req.currentUser = result.rows[0];
+      } else {
+        // @ts-ignore
+        req.currentUser = null; // ユーザーが見つからない場合
+      }
+    } catch (err) {
+      console.error('Error fetching current user:', err);
+      // @ts-ignore
+      req.currentUser = null;
+    }
+  } else {
+    // @ts-ignore
+    req.currentUser = null; // ヘッダーがない場合
+  }
   next();
 });
 
@@ -225,6 +252,52 @@ app.post('/api/reviews', async (req, res) => {
 
     } catch (err) {
         console.error('Error creating review', err);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+// PUT /api/reviews/:id
+app.put('/api/reviews/:id', async (req, res) => {
+    const { id } = req.params;
+    const { title, stages } = req.body;
+
+    try {
+        // Update review_requests table
+        const updateReviewResult = await client.query(
+            'UPDATE review_requests SET title = $1 WHERE id = $2 RETURNING *',
+            [title, id]
+        );
+
+        if (updateReviewResult.rows.length === 0) {
+            return res.status(404).send('Review not found');
+        }
+
+        // Delete existing stages and assignments
+        await client.query('DELETE FROM review_assignments WHERE review_stage_id IN (SELECT id FROM review_stages WHERE review_request_id = $1)', [id]);
+        await client.query('DELETE FROM comments WHERE review_stage_id IN (SELECT id FROM review_stages WHERE review_request_id = $1)', [id]);
+        await client.query('DELETE FROM review_stages WHERE review_request_id = $1', [id]);
+
+        // Insert new stages and their assignments
+        for (const stage of stages) {
+            const newStageId = uuidv4();
+            await client.query(
+                'INSERT INTO review_stages (id, review_request_id, name, repository_url) VALUES ($1, $2, $3, $4)',
+                [newStageId, id, stage.name, stage.repositoryUrl]
+            );
+
+            for (const assignment of stage.assignments) {
+                await client.query(
+                    'INSERT INTO review_assignments (id, review_stage_id, reviewer_id, status) VALUES ($1, $2, $3, $4)',
+                    [uuidv4(), newStageId, assignment.reviewer.id, assignment.status]
+                );
+            }
+        }
+
+        const updatedReview = await fetchReviewDetails(id);
+        res.json(updatedReview);
+
+    } catch (err) {
+        console.error('Error updating review', err);
         res.status(500).send('Internal Server Error');
     }
 });

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, StageTemplate } from '../types'; // Import StageTemplate
+import { addAuthHeader } from '../utils/api';
 
 interface StageFormState {
   id: number;
@@ -24,7 +25,7 @@ function NewReview() {
   useEffect(() => {
     const fetchAllUsers = async () => {
       try {
-        const response = await fetch('/api/users');
+        const response = await fetch('/api/users', addAuthHeader());
         if (!response.ok) throw new Error('Failed to fetch users');
         const data = await response.json();
         setAllUsers(data);
@@ -39,7 +40,7 @@ function NewReview() {
   useEffect(() => {
     const fetchStageTemplates = async () => {
       try {
-        const response = await fetch('/api/stage-templates');
+        const response = await fetch('/api/stage-templates', addAuthHeader());
         if (!response.ok) throw new Error('Failed to fetch templates');
         const data = await response.json();
         setStageTemplates(data);
@@ -116,11 +117,11 @@ function NewReview() {
     }));
 
     try {
-      const response = await fetch('/api/reviews', {
+      const response = await fetch('/api/reviews', addAuthHeader({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, stages: apiStages }),
-      });
+      }));
 
       if (!response.ok) {
         throw new Error('Failed to create review request.');

@@ -8,9 +8,44 @@ import ReviewDetail from './pages/ReviewDetail';
 import NewReview from './pages/NewReview';
 import EditReview from './pages/EditReview'; // Import EditReview
 
+import { User } from './types'; // User型をインポート
+import { addAuthHeader } from './utils/api';
+
 const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/users', addAuthHeader());
+        if (!response.ok) throw new Error('Failed to fetch users');
+        const data: User[] = await response.json();
+        setAllUsers(data);
+
+        // ローカルストレージから現在のユーザーを読み込む
+        const storedUserId = localStorage.getItem('currentUserId');
+        if (storedUserId) {
+          const user = data.find(u => u.id === storedUserId);
+          if (user) {
+            setCurrentUser(user);
+          } else {
+            // 存在しないユーザーIDの場合はクリア
+            localStorage.removeItem('currentUserId');
+          }
+        } else if (data.length > 0) {
+          // ローカルストレージにない場合は最初のユーザーを設定
+          setCurrentUser(data[0]);
+          localStorage.setItem('currentUserId', data[0].id);
+        }
+      } catch (err) {
+        console.error('Error fetching users for Header:', err);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -23,6 +58,15 @@ const Header = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  const handleUserChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedUserId = e.target.value;
+    const user = allUsers.find(u => u.id === selectedUserId);
+    if (user) {
+      setCurrentUser(user);
+      localStorage.setItem('currentUserId', user.id);
+    }
+  };
 
   return (
     <header style={{
@@ -44,6 +88,17 @@ const Header = () => {
           <Link to="/my-reviews" className="button" style={{ marginRight: '1rem' }}>自分のレビュー</Link>
           <Link to="/new" className="button">新規作成</Link>
         </nav>
+        {/* Current User Selector */}
+        <div style={{ marginLeft: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {currentUser && (
+            <img src={currentUser.avatarUrl || 'https://i.pravatar.cc/150?u=' + currentUser.id} alt={currentUser.name} style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+          )}
+          <select onChange={handleUserChange} value={currentUser?.id || ''} style={{ padding: '0.5rem', borderRadius: 'var(--border-radius)', border: '1px solid var(--border-color)' }}>
+            {allUsers.map(user => (
+              <option key={user.id} value={user.id}>{user.name}</option>
+            ))}
+          </select>
+        </div>
         <div style={{ position: 'relative', marginLeft: '1rem' }} ref={dropdownRef}>
           <button onClick={() => setDropdownOpen(!dropdownOpen)} className="button">⚙️</button>
           {dropdownOpen && (

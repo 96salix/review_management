@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ReviewRequest, ReviewStatusValue } from '../types';
 import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
+import { addAuthHeader } from '../utils/api';
 
 function ReviewDetail() {
   const { id } = useParams<{ id: string }>();
@@ -12,7 +13,7 @@ function ReviewDetail() {
 
   const fetchReview = async () => {
     try {
-      const response = await fetch(`/api/reviews/${id}`);
+      const response = await fetch(`/api/reviews/${id}`, addAuthHeader());
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
@@ -39,11 +40,11 @@ function ReviewDetail() {
   const handleStatusChange = async (reviewerId: string, newStatus: ReviewStatusValue) => {
     if (!review || !activeStage) return;
     try {
-        const response = await fetch(`/api/reviews/${review.id}/stages/${activeStage.id}/assignments/${reviewerId}`, {
+        const response = await fetch(`/api/reviews/${review.id}/stages/${activeStage.id}/assignments/${reviewerId}`, addAuthHeader({
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus }),
-        });
+        }));
         if (!response.ok) throw new Error('Failed to update status');
         const updatedReview = await response.json();
         setReview(updatedReview);
@@ -56,11 +57,11 @@ function ReviewDetail() {
     e.preventDefault();
     if (!review || !activeStage || !newComment.trim()) return;
     try {
-        const response = await fetch(`/api/reviews/${review.id}/stages/${activeStage.id}/comments`, {
+        const response = await fetch(`/api/reviews/${review.id}/stages/${activeStage.id}/comments`, addAuthHeader({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content: newComment }),
-        });
+        }));
         if (!response.ok) throw new Error('Failed to post comment');
         const updatedReview = await response.json();
         setReview(updatedReview);

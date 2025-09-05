@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User } from '../types';
+import { addAuthHeader } from '../utils/api';
 
 function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -9,7 +10,7 @@ function UserManagement() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/users');
+      const response = await fetch('/api/users', addAuthHeader());
       if (!response.ok) throw new Error('Failed to fetch users');
       const data = await response.json();
       setUsers(data);
@@ -30,11 +31,11 @@ function UserManagement() {
       return;
     }
     try {
-      const response = await fetch('/api/users', {
+      const response = await fetch('/api/users', addAuthHeader({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser),
-      });
+      }));
       if (!response.ok) throw new Error('Failed to add user');
       setNewUser({ name: '', avatarUrl: '' });
       fetchUsers();
@@ -56,11 +57,11 @@ function UserManagement() {
       return;
     }
     try {
-      const response = await fetch(`/api/users/${editingUser.id}`, {
+      const response = await fetch(`/api/users/${editingUser.id}`, addAuthHeader({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newUser.name, avatarUrl: newUser.avatarUrl }),
-      });
+      }));
       if (!response.ok) throw new Error('Failed to update user');
       setEditingUser(null);
       setNewUser({ name: '', avatarUrl: '' });
@@ -74,9 +75,9 @@ function UserManagement() {
     setError(null);
     if (!window.confirm('本当にこのユーザーを削除しますか？')) return;
     try {
-      const response = await fetch(`/api/users/${id}`, {
+      const response = await fetch(`/api/users/${id}`, addAuthHeader({
         method: 'DELETE',
-      });
+      }));
       if (!response.ok) throw new Error('Failed to delete user');
       fetchUsers();
     } catch (err) {
