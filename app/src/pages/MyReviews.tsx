@@ -121,7 +121,9 @@ function MyReviews() {
 
   return (
     <div>
-      <h1>自分のレビュー</h1>
+      <div className="page-header">
+        <h1>自分のレビュー</h1>
+      </div>
       <div>
         {groupedReviews.length > 0 ? groupedReviews.map(({ review, myAssignments }) => (
           <div key={review.id} className={`card ${myAssignments.every(a => a.assignment.status === 'lgtm') ? 'lgtm-card' : ''}`}>

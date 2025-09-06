@@ -34,10 +34,8 @@ function ReviewList() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div className="page-header">
         <h1>レビュー依頼一覧</h1>
-        {/* This button is now in the header, so we can remove it from here */}
-        {/* <Link to="/new" className="button">New Review Request</Link> */}
       </div>
       <div>
         {reviews.map((review) => (
