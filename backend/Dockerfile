@@ -4,6 +4,9 @@ FROM node:20-alpine
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
+# Install netcat for healthcheck
+RUN apk add --no-cache netcat-openbsd
+
 # Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
 

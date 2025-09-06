@@ -1,16 +1,23 @@
-**注意:** この設計書はプロジェクトの初期段階のものです。CORSと認証の問題を解決するため、バックエンドのロジックはフロントエンドのVite開発サーバーに統合されました。現在のアーキテクチャの詳細については、`README.md` および `SPECIFICATION.md` を参照してください。
-
 # 設計書
 
-## 1. 技術スタック
+## 1. アーキテクチャ概要
+
+このアプリケーションは、フロントエンド、バックエンド、データベースの3層で構成されるWebアプリケーションです。各層は独立したDockerコンテナとして実行され、Docker Composeによって統合管理されます。
+
+*   **フロントエンド**: ReactとTypeScriptで構築されたシングルページアプリケーション(SPA)です。Viteをビルドツールおよび開発サーバーとして使用します。
+*   **バックエンド**: Node.jsとExpress.js、TypeScriptで構築されたRESTful APIサーバーです。
+*   **データベース**: PostgreSQLを使用し、データの永続化を行います。
+
+## 2. 技術スタック
 
 *   **フロントエンド**: React, TypeScript, Vite, react-router-dom
-*   **バックエンド**: Node.js (Express.js), TypeScript
-*   **データベース**: (現在インメモリデータストアを使用。将来的にPostgreSQLまたはMySQLを想定)
+*   **バックエンド**: Node.js, Express.js, TypeScript, node-postgres (pg)
+*   **データベース**: PostgreSQL
+*   **インフラストラクチャ**: Docker, Docker Compose
 
-## 2. データモデル
+## 3. データモデル
 
-以下のTypeScriptインターフェースがフロントエンドとバックエンドで共有されています。
+主要なデータモデルのTypeScriptインターフェースは以下の通りです。型定義は `app/src/types.ts` と `backend/src/types.ts` に存在します。
 
 ```typescript
 // ユーザー
@@ -21,39 +28,42 @@ export interface User {
 }
 
 // レビュアーごとの割り当てと状況
-export type ReviewStatus = 'pending' | 'reviewing' | 'commented' | 'approved';
-
-export const ReviewStatuses = {
-  PENDING: 'pending',
-  REVIEWING: 'reviewing',
-  COMMENTED: 'commented',
-  APPROVED: 'approved',
-} as const;
-
-export type ReviewStatusValue = typeof ReviewStatuses[keyof typeof ReviewStatuses];
+export type ReviewStatus = 'pending' | 'commented' | 'answered' | 'lgtm';
 
 export interface ReviewAssignment {
   reviewer: User;
   status: ReviewStatus;
 }
 
-// コメント
+// コメント（スレッド機能付き）
 export interface Comment {
   id: string;
   author: User;
   content: string;
   createdAt: string;
-  // 特定行へのコメントの場合
   lineNumber?: number;
+  parentCommentId?: string; // 親コメントのID
+  replies?: Comment[];      // 子コメント（返信）の配列
 }
 
 // レビュー段階
 export interface ReviewStage {
   id: string;
-  name: string; // e.g., "1st Round", "Security Check"
+  name: string;
   assignments: ReviewAssignment[];
   comments: Comment[];
   repositoryUrl: string;
+}
+
+// アクティビティログ
+export type ActivityLogType = 'CREATE' | 'STATUS_CHANGE' | 'COMMENT';
+
+export interface ActivityLog {
+    id: string;
+    type: ActivityLogType;
+    user: User;
+    details: string;
+    createdAt: string;
 }
 
 // レビュー依頼
@@ -63,39 +73,50 @@ export interface ReviewRequest {
   author: User;
   createdAt: string;
   stages: ReviewStage[];
+  activityLogs: ActivityLog[];
+}
+
+// ステージテンプレートのステージ定義
+export interface TemplateStage {
+  name: string;
+  reviewerIds: string[];
+}
+
+// ステージテンプレート
+export interface StageTemplate {
+  id: string;
+  name: string;
+  stages: TemplateStage[];
 }
 ```
 
-## 3. APIエンドポイント
+## 4. APIエンドポイント
 
 バックエンドは以下のRESTful APIエンドポイントを提供します。
 
-*   **`GET /api/reviews`**
-    *   **説明**: すべてのレビュー依頼のリストを取得します。
-    *   **レスポンス**: `ReviewRequest[]`
+### レビュー関連
 
-*   **`GET /api/reviews/:id`**
-    *   **説明**: 特定のIDを持つレビュー依頼の詳細を取得します。
-    *   **パラメータ**: `:id` - レビュー依頼のID。
-    *   **レスポンス**: `ReviewRequest` または `404 Not Found`。
+*   `GET /api/reviews`: 全てのレビュー依頼のリストを取得します。
+*   `GET /api/reviews/:id`: 特定のIDのレビュー依頼詳細を取得します。
+*   `POST /api/reviews`: 新しいレビュー依頼を作成します。
+*   `PUT /api/reviews/:id`: 特定のIDのレビュー依頼を更新します。
+*   `PUT /api/reviews/:reviewId/stages/:stageId/assignments/:reviewerId`: レビュアーのステータスを更新します。
+*   `POST /api/reviews/:reviewId/stages/:stageId/comments`: ステージにコメントを追加します。
 
-*   **`POST /api/reviews`**
-    *   **説明**: 新しいレビュー依頼を作成します。
-    *   **リクエストボディ**: `Omit<ReviewRequest, 'id' | 'createdAt' | 'author'>` （`title` と `stages` を含む）。
-    *   **レスポンス**: 作成された `ReviewRequest` オブジェクト (`201 Created`)。
+### ユーザー管理
 
-*   **`PUT /api/reviews/:reviewId/stages/:stageId/assignments/:reviewerId`**
-    *   **説明**: 特定のレビュー依頼の特定のステージにおけるレビュアーのステータスを更新します。
-    *   **パラメータ**: `:reviewId`, `:stageId`, `:reviewerId`。
-    *   **リクエストボディ**: `{ status: ReviewStatusValue }`。
-    *   **レスポンス**: 更新された `ReviewRequest` オブジェクト。
+*   `GET /api/users`: 全てのユーザーのリストを取得します。
+*   `POST /api/users`: 新しいユーザーを作成します。
+*   `PUT /api/users/:id`: 特定のIDのユーザー情報を更新します。
+*   `DELETE /api/users/:id`: 特定のIDのユーザーを削除します。
 
-*   **`POST /api/reviews/:reviewId/stages/:stageId/comments`**
-    *   **説明**: 特定のレビュー依頼の特定のステージにコメントを追加します。
-    *   **パラメータ**: `:reviewId`, `:stageId`。
-    *   **リクエストボディ**: `{ content: string, lineNumber?: number }`。
-    *   **レスポンス**: 更新された `ReviewRequest` オブジェクト。
+### ステージテンプレート管理
 
-## 4. 認証シミュレーション
+*   `GET /api/stage-templates`: 全てのステージテンプレートのリストを取得します。
+*   `POST /api/stage-templates`: 新しいステージテンプレートを作成します。
+*   `PUT /api/stage-templates/:id`: 特定のIDのステージテンプレートを更新します。
+*   `DELETE /api/stage-templates/:id`: 特定のIDのステージテンプレートを削除します。
 
-バックエンドは、ミドルウェアで `users[0]` を現在のユーザー (`req.currentUser`) として設定することで、簡易的な認証をシミュレートしています。これは開発目的であり、本番環境では適切な認証システムに置き換える必要があります。
+## 5. 認証
+
+バックエンドのExpressミドルウェアで認証を処理します。フロントエンドからのリクエストに含まれる `X-User-Id` カスタムヘッダーを検証し、対応するユーザー情報をデータベースから取得して後続の処理で利用します。

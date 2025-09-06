@@ -2,47 +2,50 @@
 
 このプロジェクトは、ソースコードのレビュープロセスを支援するためのWebアプリケーションです。
 
-ReactとTypeScriptで構築され、Vite開発サーバーにAPIエンドポイントが統合されています。
+このプロジェクトは、ソースコードのレビュープロセスを支援するためのWebアプリケーションです。
+
+フロントエンドはReact/TypeScript、バックエンドはNode.js/TypeScript、データベースはPostgreSQLで構築され、Docker Composeによって管理されています。
 
 ## プロジェクト構造
 
 ```
 review_management/
-├── app/             # フロントエンド (Vite + React + TypeScript)
-│   ├── src/
-│   │   ├── components/  # 再利用可能なUIコンポーネント (例: StatusSelector)
-│   │   ├── pages/       # 各ページのコンポーネント
-│   │   ├── data.ts      # アプリケーションのデータ (ユーザー、レビュー依頼、初期ログ)
-│   │   ├── types.ts     # 型定義 (レビュー依頼、ステージ、コメント、アクティビティログなど)
-│   │   └── ...
-│   ├── vite.config.ts # Viteの設定（APIミドルウェアを含む）
-│   └── ...
-├── DESIGN.md        # 初期設計書 (現在は非推奨)
-├── SPECIFICATION.md # 最新の機能仕様書
-├── TASKS.md
-└── README.md        # このファイル
+├── app/                # フロントエンド (Vite + React + TypeScript)
+├── backend/            # バックエンド (Node.js + Express + TypeScript)
+├── init.sql            # データベース初期化スクリプト
+├── docker-compose.yml  # Dockerコンテナ設定
+├── Dockerfile          # 各サービスのDockerfile
+├── DESIGN.md           # 初期設計書 (非推奨)
+├── SPECIFICATION.md    # 最新の機能仕様書
+└── README.md           # このファイル
 ```
 
 ## セットアップと実行
 
-### 1. 依存関係のインストール
+このプロジェクトを実行するには、DockerとDocker Composeが必要です。
 
-`app` ディレクトリに移動し、必要なライブラリをインストールします。
+1. **Docker Desktopをインストールして起動します。**
 
-```bash
-cd app
-npm install
-```
+2. **プロジェクトの初回起動:**
+   プロジェクトのルートディレクトリで、以下のコマンドを実行してコンテナをビルドし、起動します。
 
-### 2. アプリケーションの実行
+   ```bash
+   docker-compose up --build
+   ```
 
-`app` ディレクトリで開発サーバーを起動します。
+3. **アプリケーションへのアクセス:**
+   ブラウザで `http://localhost:5174` を開きます。
 
-```bash
-npm run dev
-```
+4. **コンテナの停止:**
+   ターミナルで `Ctrl + C` を押すとコンテナが停止します。
 
-アプリケーションが `http://localhost:5173` (または別のポート) で起動します。ブラウザでこのURLにアクセスしてください。フロントエンドとAPIが同じサーバーで動作するため、バックエンドを別途起動する必要はありません。
+5. **コンテナの完全な削除 (データベースリセットを含む):**
+   データベースを含めて全てをクリーンな状態に戻したい場合は、以下のコマンドを実行します。
+
+   ```bash
+   docker-compose down -v
+   ```
+
 
 ## 主な機能
 

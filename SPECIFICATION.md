@@ -46,11 +46,20 @@
 *   レビュー依頼の作成、ステータス変更、コメント追加など、すべての主要なアクションを時系列で記録する。
 *   ログは、誰が、いつ、どのようなアクションを行ったかを示す。
 
+### 4.7. ユーザー管理機能
+*   ユーザー（レビュアーや依頼者）の情報を管理する。
+*   ユーザーの作成、一覧取得、更新、削除が可能。
+
+### 4.8. ステージテンプレート管理機能
+*   レビュー依頼作成時に利用できる、ステージ構成のテンプレートを管理する。
+*   テンプレートには、ステージ名とデフォルトのレビュアーのリストが含まれる。
+*   テンプレートの作成、一覧取得、更新、削除が可能。
+
 ## 5. 画面構成（日本語化・デザイン改善後）
 
 ### 5.1. ヘッダー
 *   左側にアプリケーション名「レビュー管理」を表示。
-*   右側に「レビュー一覧」「自分のレビュー」「新規作成」ボタンを配置。
+*   右側に「レビュー一覧」「自分のレビュー」「新規作成」「ステージテンプレート管理」「ユーザー管理」ボタンを配置。
 
 ### 5.2. レビュー一覧画面 (`/`)
 *   すべてのレビュー依頼をカード形式で一覧表示する。
@@ -69,7 +78,7 @@
 *   レビューのステージをタブで切り替えられるようにする。
 *   各ステージについて、以下の情報を表示する。
     *   レビュアーとそのステータスの一覧。ステータスは横並びのボタンで変更可能。
-    *   コメントのスレッド。アイコン付きで誰のコメントか分かりやすく表示。
+    *   コメントのスレッド（返信機能を含む）。アイコン付きで誰のコメントか分かりやすく表示。
     *   コメント投稿フォーム。
 *   情報はリアルタイムで更新される。
 *   **アクティビティログセクション:** レビュー依頼に関するすべてのログを時系列で表示する。
@@ -84,20 +93,42 @@
 *   既存のレビュー依頼の情報をフォームに表示し、編集できる。
 *   「更新」ボタンを押すと、変更が保存され、詳細画面に遷移する。
 
+### 5.7. ユーザー管理画面 (`/users`)
+*   登録されているユーザーを一覧表示する。
+*   ユーザーの新規作成、編集、削除が行える。
+
+### 5.8. ステージテンプレート管理画面 (`/stage-templates`)
+*   登録されているステージテンプレートを一覧表示する。
+*   テンプレートの新規作成、編集、削除が行える。
+
 ## 6. データ構造とAPI
 
-*   データモデル（型定義）は `app/src/types.ts` に集約。
-    *   `ReviewStatus` は `pending`, `commented`, `answered`, `lgtm` に変更。
-    *   `ActivityLog` 型が追加され、`ReviewRequest` に `activityLogs` フィールドが追加された。
-*   データそのもの（ユーザーリストや初期レビュー依頼）は `app/src/data.ts` に定義。
-*   APIエンドポイントは、Viteの開発サーバーのミドルウェアとして `app/vite.config.ts` 内に実装されている。これにより、フロントエンドとAPIが同一オリジンで動作する。
-    *   `GET /api/reviews`
-    *   `GET /api/reviews/:id`
-    *   `POST /api/reviews` (レビュー依頼作成時に `CREATE` ログを生成)
-    *   `PUT /api/reviews/:id` (レビュー依頼編集)
-    *   `PUT /api/reviews/:reviewId/stages/:stageId/assignments/:reviewerId` (ステータス変更時に `STATUS_CHANGE` ログを生成)
-    *   `POST /api/reviews/:reviewId/stages/:stageId/comments` (コメント追加時に `COMMENT` ログを生成)
+*   **アーキテクチャ**: フロントエンド(React)、バックエンド(Node.js/Express)、データベース(PostgreSQL)の3層構造で、それぞれがDockerコンテナとして動作します。
+*   **データモデル**: 型定義は `app/src/types.ts` と `backend/src/types.ts` に存在します。
+    *   `Comment` モデルは `parentCommentId` を持ち、コメントの返信（スレッド）機能をサポートします。
+    *   `ReviewRequest` は `activityLogs` フィールドを持ち、関連する操作の履歴を記録します。
+    *   主要なモデルには `User`, `ReviewRequest`, `StageTemplate` などが含まれます。
+*   **データベース**: PostgreSQLを使用し、テーブル定義は `init.sql` に記載されています。
+*   **APIエンドポイント**: バックエンドは以下のRESTful APIを提供します。
+    *   **レビュー関連**
+        *   `GET /api/reviews`
+        *   `GET /api/reviews/:id`
+        *   `POST /api/reviews`
+        *   `PUT /api/reviews/:id`
+        *   `PUT /api/reviews/:reviewId/stages/:stageId/assignments/:reviewerId`
+        *   `POST /api/reviews/:reviewId/stages/:stageId/comments`
+    *   **ユーザー管理**
+        *   `GET /api/users`
+        *   `POST /api/users`
+        *   `PUT /api/users/:id`
+        *   `DELETE /api/users/:id`
+    *   **ステージテンプレート管理**
+        *   `GET /api/stage-templates`
+        *   `POST /api/stage-templates`
+        *   `PUT /api/stage-templates/:id`
+        *   `DELETE /api/stage-templates/:id`
 
 ## 7. 認証
 
-*   `vite.config.ts` 内のAPIミドルウェアで、`users[0]` を現在のユーザーとして設定することで、簡易的な認証をシミュレートしている。
+*   バックエンドのミドルウェアで認証を処理します。
+*   フロントエンドからのリクエストに含まれる `X-User-Id` カスタムヘッダーを元に、データベースから現在のユーザー情報を取得して利用します。

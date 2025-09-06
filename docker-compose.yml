@@ -6,9 +6,12 @@ services:
       - "5174:5174"
     volumes:
       - ./app:/usr/src/app
-      - /usr/src/app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: sh -c "npm install && npm run dev -- --host"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   backend:
     build: ./backend
@@ -16,9 +19,17 @@ services:
       - "3001:3001"
     volumes:
       - ./backend:/usr/src/app
-      - /usr/src/app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: sh -c "npm install && npm run dev"
     depends_on:
       - db
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3001 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   db:
     image: postgres:13-alpine
@@ -28,6 +39,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: review_management
     volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
       - db-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
