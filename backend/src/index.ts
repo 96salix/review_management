@@ -19,13 +19,23 @@ const dbConfig = {
 
 const client = new Client(dbConfig);
 
-async function connectDb() {
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 5000; // 5 seconds
+
+async function connectDb(retries = MAX_RETRIES) {
   try {
     await client.connect();
     console.log('Connected to PostgreSQL database');
   } catch (err) {
     console.error('Database connection error', err);
-    process.exit(1); // Exit if DB connection fails
+    if (retries > 0) {
+      console.log(`Retrying connection in ${RETRY_DELAY / 1000} seconds... (${retries} retries left)`);
+      await new Promise(res => setTimeout(res, RETRY_DELAY));
+      await connectDb(retries - 1);
+    } else {
+      console.error('Could not connect to the database. Exiting.');
+      process.exit(1); // Exit if DB connection fails after all retries
+    }
   }
 }
 
@@ -66,17 +76,33 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
     });
 
     const commentsResult = await client.query('SELECT * FROM comments WHERE review_stage_id = $1 ORDER BY created_at', [stageRow.id]);
-    const comments: Comment[] = await Promise.all(commentsResult.rows.map(async commentRow => {
+    const allComments: Comment[] = await Promise.all(commentsResult.rows.map(async commentRow => {
       const commentAuthorResult = await client.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [commentRow.author_id]);
-      const commentAuthor = commentAuthorResult.rows[0] || { id: commentRow.author_id, name: 'Unknown User', avatarUrl: '' };
+      const commentAuthor: User = commentAuthorResult.rows[0] || { id: commentRow.author_id, name: 'Unknown User', avatarUrl: '' };
       return {
         id: commentRow.id,
         author: commentAuthor,
         content: commentRow.content,
         createdAt: commentRow.created_at,
         lineNumber: commentRow.line_number,
+        parentCommentId: commentRow.parent_comment_id, // parentCommentId を追加
       };
     }));
+
+    // コメントをスレッド形式に整形
+    const commentsMap = new Map<string, Comment>();
+    allComments.forEach(comment => commentsMap.set(comment.id, { ...comment, replies: [] }));
+
+    const comments: Comment[] = [];
+    allComments.forEach(comment => {
+      if (comment.parentCommentId && commentsMap.has(comment.parentCommentId)) {
+        commentsMap.get(comment.parentCommentId)?.replies?.push(comment);
+      } else {
+        comments.push(commentsMap.get(comment.id)!);
+      }
+    });
+    // トップレベルのコメントを日付でソート
+    comments.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
     return {
       id: stageRow.id,
@@ -368,14 +394,14 @@ app.post('/api/reviews/:reviewId/stages/:stageId/comments', async (req, res) => 
     // @ts-ignore
     const currentUser = req.currentUser as User;
     const { reviewId, stageId } = req.params;
-    const { content, lineNumber } = req.body;
+    const { content, lineNumber, parentCommentId } = req.body; // parentCommentId を追加
     const createdAt = new Date().toISOString();
 
     try {
         // Insert into comments table
         const commentResult = await client.query(
-            'INSERT INTO comments (id, review_stage_id, author_id, content, created_at, line_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [uuidv4(), stageId, currentUser.id, content, createdAt, lineNumber]
+            'INSERT INTO comments (id, review_stage_id, author_id, content, created_at, line_number, parent_comment_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *'
+            [uuidv4(), stageId, currentUser.id, content, createdAt, lineNumber, parentCommentId] // parentCommentId を追加
         );
         const newComment = commentResult.rows[0];
 

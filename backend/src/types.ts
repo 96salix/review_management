@@ -30,6 +30,8 @@ export interface Comment {
   createdAt: string;
   // 特定行へのコメントの場合
   lineNumber?: number;
+  parentCommentId?: string; // 親コメントIDを追加
+  replies?: Comment[]; // 返信コメントを追加
 }
 
 // レビュー段階

@@ -4,6 +4,77 @@ import { ReviewRequest, ReviewStatusValue } from '../types';
 import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
 import { addAuthHeader } from '../utils/api';
 
+interface CommentItemProps {
+  comment: Comment;
+  onReply: (parentCommentId: string) => void;
+}
+
+const CommentItem: React.FC<CommentItemProps> = ({ comment, onReply }) => {
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+
+  const handleReplySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyContent.trim()) return;
+    await onReply(comment.id, replyContent); // 親コメントIDと内容を渡す
+    setReplyContent('');
+    setShowReplyForm(false);
+  };
+
+  return (
+    <div style={{ display: 'flex', marginBottom: '0.5rem', marginLeft: comment.parentCommentId ? '2rem' : '0' }}>
+      <img src={comment.author.avatarUrl} alt={comment.author.name} style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '0.5rem' }} />
+      <div style={{ flex: 1, background: '#f1f1f1', padding: '0.5rem', borderRadius: 'var(--border-radius)' }}>
+        <p style={{ margin: 0, fontWeight: '600' }}>
+          {comment.author.name}
+          <span style={{ color: 'var(--secondary-color)', fontWeight: 'normal', marginLeft: '0.5rem' }}>
+            コメント日時: {new Date(comment.createdAt).toLocaleString()}
+          </span>
+        </p>
+        {comment.lineNumber && <p style={{ margin: '0.5rem 0 0', color: 'var(--secondary-color)' }}>Line: {comment.lineNumber}</p>}
+        <p style={{ margin: '0.5rem 0 0' }}>{comment.content}</p>
+        <button onClick={() => setShowReplyForm(!showReplyForm)} style={{ fontSize: '0.8em', padding: '0.2rem 0.5rem', marginTop: '0.5rem' }}>
+          {showReplyForm ? '返信をキャンセル' : '返信する'}
+        </button>
+
+        {showReplyForm && (
+          <form onSubmit={handleReplySubmit} style={{ display: 'flex', flexDirection: 'column', marginTop: '0.5rem' }}>
+            <textarea
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              placeholder="返信コメントを入力..."
+              rows={2}
+              style={{ marginBottom: '0.5rem' }}
+            />
+            <button type="submit" style={{ alignSelf: 'flex-end' }}>返信を投稿</button>
+          </form>
+        )}
+
+        {comment.replies && comment.replies.length > 0 && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <CommentList comments={comment.replies} onReply={onReply} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+interface CommentListProps {
+  comments: Comment[];
+  onReply: (parentCommentId: string) => void;
+}
+
+const CommentList: React.FC<CommentListProps> = ({ comments, onReply }) => {
+  return (
+    <>
+      {comments.map(comment => (
+        <CommentItem key={comment.id} comment={comment} onReply={onReply} />
+      ))}
+    </>
+  );
+};
+
 function ReviewDetail() {
   const { id } = useParams<{ id: string }>();
   const [review, setReview] = useState<ReviewRequest | null>(null);
@@ -53,14 +124,13 @@ function ReviewDetail() {
     }
   };
 
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!review || !activeStage || !newComment.trim()) return;
+  const handleCommentSubmit = async (content: string, parentCommentId: string | null = null) => {
+    if (!review || !activeStage || !content.trim()) return;
     try {
         const response = await fetch(`/api/reviews/${review.id}/stages/${activeStage.id}/comments`, addAuthHeader({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: newComment }),
+            body: JSON.stringify({ content: content, parentCommentId: parentCommentId }), // parentCommentId を追加
         }));
         if (!response.ok) throw new Error('Failed to post comment');
         const updatedReview = await response.json();
@@ -69,6 +139,11 @@ function ReviewDetail() {
     } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
+  };
+
+  // CommentListに渡すonReplyハンドラ
+  const handleReply = async (parentCommentId: string, content: string) => {
+    await handleCommentSubmit(content, parentCommentId);
   };
 
   if (error) return <div className="card" style={{ color: 'red' }}>Error: {error}</div>;
@@ -129,30 +204,20 @@ function ReviewDetail() {
           <div>
             <h3>コメント</h3>
             <div style={{ marginBottom: '0.75rem' }}>
-              {activeStage.comments.length > 0 ? activeStage.comments.map(comment => (
-                <div key={comment.id} style={{ display: 'flex', marginBottom: '0.5rem' }}>
-                  <img src={comment.author.avatarUrl} alt={comment.author.name} style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '0.5rem' }} />
-                  <div style={{ flex: 1, background: '#f1f1f1', padding: '0.5rem', borderRadius: 'var(--border-radius)' }}>
-                    <p style={{ margin: 0, fontWeight: '600' }}>
-                      {comment.author.name}
-                      <span style={{ color: 'var(--secondary-color)', fontWeight: 'normal', marginLeft: '0.5rem' }}>
-                        コメント日時: {new Date(comment.createdAt).toLocaleString()}
-                      </span>
-                    </p>
-                    {comment.lineNumber && <p style={{ margin: '0.5rem 0 0', color: 'var(--secondary-color)' }}>Line: {comment.lineNumber}</p>}
-                    <p style={{ margin: '0.5rem 0 0' }}>{comment.content}</p>
-                  </div>
-                </div>
-              )) : <p>まだコメントはありません。</p>}
+              {activeStage.comments.length > 0 ? (
+                <CommentList comments={activeStage.comments} onReply={handleReply} />
+              ) : (
+                <p>まだコメントはありません。</p>
+              )}
             </div>
-            <form onSubmit={handleCommentSubmit} style={{ display: 'flex' }}>
+            <form onSubmit={(e) => { e.preventDefault(); handleCommentSubmit(newComment); }} style={{ display: 'flex', flexDirection: 'column' }}>
                 <textarea
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="コメントを追加..."
                     rows={3}
                 />
-                <button type="submit" style={{ marginLeft: '1rem', alignSelf: 'flex-start' }}>投稿</button>
+                <button type="submit" style={{ marginTop: '0.5rem', alignSelf: 'flex-end' }}>投稿</button>
             </form>
           </div>
 
