@@ -8,13 +8,15 @@ interface StageFormState {
   name: string;
   repositoryUrl: string;
   reviewerIds: string[];
+  reviewerCount: number;
 }
 
 function NewReview() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
+  const [url, setUrl] = useState('');
   const [stages, setStages] = useState<StageFormState[]>([
-    { id: 1, name: '1st Round', repositoryUrl: '', reviewerIds: [] },
+    { id: 1, name: '1st Round', repositoryUrl: '', reviewerIds: [], reviewerCount: 0 },
   ]);
   const [error, setError] = useState<string | null>(null);
   const [stageTemplates, setStageTemplates] = useState<StageTemplate[]>([]); // New state for templates
@@ -51,6 +53,24 @@ function NewReview() {
     fetchStageTemplates();
   }, []);
 
+  // Apply default template once templates are loaded
+  useEffect(() => {
+    if (stageTemplates.length > 0 && !selectedTemplateId) {
+      const defaultTemplate = stageTemplates.find(t => t.isDefault);
+      if (defaultTemplate) {
+        setSelectedTemplateId(defaultTemplate.id);
+        // Apply template stages to the form
+        setStages(defaultTemplate.stages.map((s, index) => ({
+          id: Date.now() + index, // Generate new unique ID for form state
+          name: s.name,
+          repositoryUrl: '', // Repository URL is usually specific to the review, not template
+          reviewerIds: s.reviewerIds,
+          reviewerCount: s.reviewerCount || s.reviewerIds.length || 3,
+        })));
+      }
+    }
+  }, [stageTemplates]);
+
   const handleTemplateSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const templateId = e.target.value;
     setSelectedTemplateId(templateId);
@@ -63,11 +83,12 @@ function NewReview() {
           name: s.name,
           repositoryUrl: '', // Repository URL is usually specific to the review, not template
           reviewerIds: s.reviewerIds,
+          reviewerCount: s.reviewerIds.length,
         })));
       }
     } else {
       // If "Select a template" is chosen, clear stages
-      setStages([{ id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [] }]);
+      setStages([{ id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: 0 }]);
     }
   };
 
@@ -78,7 +99,7 @@ function NewReview() {
   };
 
   const addStage = () => {
-    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [] }]);
+    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: 3 }]);
   };
 
   const removeStage = (index: number) => {
@@ -96,6 +117,26 @@ function NewReview() {
     setStages(newStages);
   };
 
+  const handleRandomAssign = (stageIndex: number) => {
+    const stage = stages[stageIndex];
+    if (stage.reviewerCount > allUsers.length) {
+      setError('レビュアー数が全ユーザー数を超えています。');
+      return;
+    }
+    const shuffled = [...allUsers].sort(() => 0.5 - Math.random());
+    const selectedReviewerIds = shuffled.slice(0, stage.reviewerCount).map(user => user.id);
+    handleStageChange(stageIndex, 'reviewerIds', selectedReviewerIds);
+  };
+
+  const applyToAllStages = (stageIndex: number) => {
+    const sourceReviewerIds = stages[stageIndex].reviewerIds;
+    const newStages = stages.map(stage => ({
+      ...stage,
+      reviewerIds: [...sourceReviewerIds],
+    }));
+    setStages(newStages);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -109,6 +150,7 @@ function NewReview() {
       id: String(Date.now() + index), // Temporary unique ID
       name: stage.name,
       repositoryUrl: stage.repositoryUrl,
+      reviewerCount: stage.reviewerCount,
       assignments: stage.reviewerIds.map(reviewerId => ({
         reviewer: allUsers.find(u => u.id === reviewerId)!,
         status: 'pending' as const,
@@ -120,7 +162,7 @@ function NewReview() {
       const response = await fetch('/api/reviews', addAuthHeader({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, stages: apiStages }),
+        body: JSON.stringify({ title, url, stages: apiStages }),
       }));
 
       if (!response.ok) {
@@ -150,6 +192,16 @@ function NewReview() {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label htmlFor="url">レビュー対象URL</label>
+          <input
+            id="url"
+            type="text"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
           />
         </div>
 
@@ -191,7 +243,20 @@ function NewReview() {
               />
             </div>
             <div>
-              <label>レビュアー</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+                <label>レビュアー</label>
+                <input
+                  type="number"
+                  value={stage.reviewerCount}
+                  onChange={(e) => handleStageChange(index, 'reviewerCount', parseInt(e.target.value, 10) || 0)}
+                  min="0"
+                  style={{ width: '50px' }}
+                />
+                <button type="button" onClick={() => handleRandomAssign(index)}>ランダム割り当て</button>
+                {index === 0 && stages.length > 1 && (
+                  <button type="button" onClick={() => applyToAllStages(index)}>全ステージに反映</button>
+                )}
+              </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                 {allUsers.map(user => (
                   <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'normal' }}>

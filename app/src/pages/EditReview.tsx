@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { ReviewRequest, StageTemplate } from '../types'; // Import StageTemplate
+import { ReviewRequest, StageTemplate, User } from '../types'; // Import User
 import { addAuthHeader } from '../utils/api';
 
 interface StageFormState {
@@ -9,41 +9,39 @@ interface StageFormState {
   name: string;
   repositoryUrl: string;
   reviewerIds: string[];
+  reviewerCount: number;
 }
 
 function EditReview() {
   const { id } = useParams<{ id: string }>();
-  const [allUsers, setAllUsers] = useState<User[]>([]); // New state for all users
+  const navigate = useNavigate();
+  const [title, setTitle] = useState('');
+  const [url, setUrl] = useState('');
+  const [stages, setStages] = useState<StageFormState[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [stageTemplates, setStageTemplates] = useState<StageTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [allUsers, setAllUsers] = useState<User[]>([]);
 
-  // Fetch all users on component mount
   useEffect(() => {
     const fetchAllUsers = async () => {
       try {
         const response = await fetch('/api/users', addAuthHeader());
         if (!response.ok) throw new Error('Failed to fetch users');
-        const data = await response.json();
-        setAllUsers(data);
+        setAllUsers(await response.json());
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred while fetching users');
       }
     };
     fetchAllUsers();
   }, []);
-  const navigate = useNavigate();
-  const [title, setTitle] = useState('');
-  const [stages, setStages] = useState<StageFormState[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [stageTemplates, setStageTemplates] = useState<StageTemplate[]>([]); // New state for templates
-  const [selectedTemplateId, setSelectedTemplateId] = useState(''); // New state for selected template
 
-  // Fetch stage templates on component mount
   useEffect(() => {
     const fetchStageTemplates = async () => {
       try {
         const response = await fetch('/api/stage-templates', addAuthHeader());
         if (!response.ok) throw new Error('Failed to fetch templates');
-        const data = await response.json();
-        setStageTemplates(data);
+        setStageTemplates(await response.json());
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred while fetching templates');
       }
@@ -58,17 +56,21 @@ function EditReview() {
         if (!response.ok) throw new Error('Review not found');
         const data: ReviewRequest = await response.json();
         setTitle(data.title);
+        setUrl(data.url);
         setStages(data.stages.map(s => ({
           id: s.id,
           name: s.name,
           repositoryUrl: s.repositoryUrl,
           reviewerIds: s.assignments.map(a => a.reviewer.id),
+          reviewerCount: s.reviewerCount || s.assignments.length,
         })));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
       }
     };
-    fetchReviewForEdit();
+    if (id) {
+        fetchReviewForEdit();
+    }
   }, [id]);
 
   const handleTemplateSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -77,17 +79,16 @@ function EditReview() {
     if (templateId) {
       const selectedTemplate = stageTemplates.find(t => t.id === templateId);
       if (selectedTemplate) {
-        // Apply template stages to the form
         setStages(selectedTemplate.stages.map((s, index) => ({
-          id: Date.now() + index, // Generate new unique ID for form state
+          id: Date.now() + index,
           name: s.name,
-          repositoryUrl: '', // Repository URL is usually specific to the review, not template
+          repositoryUrl: '',
           reviewerIds: s.reviewerIds,
+          reviewerCount: s.reviewerIds.length,
         })));
       }
     } else {
-      // If "Select a template" is chosen, clear stages
-      setStages([]); // Clear stages when template is deselected
+      setStages([]);
     }
   };
 
@@ -98,7 +99,7 @@ function EditReview() {
   };
 
   const addStage = () => {
-    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [] }]);
+    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: 3 }]);
   };
 
   const removeStage = (index: number) => {
@@ -116,6 +117,26 @@ function EditReview() {
     setStages(newStages);
   };
 
+  const handleRandomAssign = (stageIndex: number) => {
+    const stage = stages[stageIndex];
+    if (stage.reviewerCount > allUsers.length) {
+      setError('レビュアー数が全ユーザー数を超えています。');
+      return;
+    }
+    const shuffled = [...allUsers].sort(() => 0.5 - Math.random());
+    const selectedReviewerIds = shuffled.slice(0, stage.reviewerCount).map(user => user.id);
+    handleStageChange(stageIndex, 'reviewerIds', selectedReviewerIds);
+  };
+
+  const applyToAllStages = (stageIndex: number) => {
+    const sourceReviewerIds = stages[stageIndex].reviewerIds;
+    const newStages = stages.map(stage => ({
+      ...stage,
+      reviewerIds: [...sourceReviewerIds],
+    }));
+    setStages(newStages);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -129,18 +150,19 @@ function EditReview() {
       id: String(stage.id),
       name: stage.name,
       repositoryUrl: stage.repositoryUrl,
+      reviewerCount: stage.reviewerCount,
       assignments: stage.reviewerIds.map(reviewerId => ({
         reviewer: allUsers.find(u => u.id === reviewerId)!,
         status: 'pending' as const,
       })),
-      comments: [], // Comments are not editable in this form
+      comments: [],
     }));
 
     try {
       const response = await fetch(`/api/reviews/${id}`, addAuthHeader({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, stages: apiStages }),
+        body: JSON.stringify({ title, url, stages: apiStages }),
       }));
 
       if (!response.ok) {
@@ -169,6 +191,16 @@ function EditReview() {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label htmlFor="url">レビュー対象URL</label>
+          <input
+            id="url"
+            type="text"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
           />
         </div>
 
@@ -210,7 +242,20 @@ function EditReview() {
               />
             </div>
             <div>
-              <label>レビュアー</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+                <label>レビュアー</label>
+                <input
+                  type="number"
+                  value={stage.reviewerCount}
+                  onChange={(e) => handleStageChange(index, 'reviewerCount', parseInt(e.target.value, 10) || 0)}
+                  min="0"
+                  style={{ width: '50px' }}
+                />
+                <button type="button" onClick={() => handleRandomAssign(index)}>ランダム割り当て</button>
+                {index === 0 && stages.length > 1 && (
+                  <button type="button" onClick={() => applyToAllStages(index)}>全ステージに反映</button>
+                )}
+              </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                 {allUsers.map(user => (
                   <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'normal' }}>

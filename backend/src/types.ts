@@ -6,13 +6,13 @@ export interface User {
 }
 
 // レビュアーごとの割り当てと状況
-export type ReviewStatus = 'pending' | 'reviewing' | 'commented' | 'approved';
+export type ReviewStatus = 'pending' | 'commented' | 'answered' | 'lgtm';
 
 export const ReviewStatuses = {
   PENDING: 'pending',
-  REVIEWING: 'reviewing',
   COMMENTED: 'commented',
-  APPROVED: 'approved',
+  ANSWERED: 'answered',
+  LGTM: 'lgtm',
 } as const;
 
 export type ReviewStatusValue = typeof ReviewStatuses[keyof typeof ReviewStatuses];
@@ -41,6 +41,7 @@ export interface ReviewStage {
   assignments: ReviewAssignment[];
   comments: Comment[];
   repositoryUrl: string;
+  reviewerCount: number;
 }
 
 // アクティビティログ
@@ -57,6 +58,7 @@ export interface ActivityLog {
 export interface ReviewRequest {
   id: string;
   title: string;
+  url: string;
   author: User;
   createdAt: string;
   stages: ReviewStage[];
@@ -69,6 +71,7 @@ export interface ReviewRequest {
 export interface TemplateStage {
   name: string;
   reviewerIds: string[];
+  reviewerCount: number;
 }
 
 // ステージテンプレート
@@ -76,4 +79,5 @@ export interface StageTemplate {
   id: string;
   name: string;
   stages: TemplateStage[];
+  isDefault?: boolean;
 }

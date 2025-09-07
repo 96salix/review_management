@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ReviewRequest, ReviewStatusValue } from '../types';
+import { ReviewRequest, ReviewStatusValue, ReviewStage } from '../types';
 import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
 import { addAuthHeader } from '../utils/api';
 
@@ -81,6 +81,7 @@ function ReviewDetail() {
   const [activeStageId, setActiveStageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
+  const [copySuccessMessage, setCopySuccessMessage] = useState('');
 
   const fetchReview = async () => {
     try {
@@ -141,6 +142,34 @@ function ReviewDetail() {
     }
   };
 
+  const handleCopyToClipboard = async (stage: ReviewStage) => {
+    if (!review) return;
+
+    const reviewers = stage.assignments.map(a => `@${a.reviewer.name}`).join(' ');
+    const textToCopy = `
+レビューをお願いします！
+
+■レビュー対象
+${review.url}
+
+■レビュアー
+${reviewers}
+
+■レビュー詳細
+${window.location.href}
+    `;
+
+    try {
+      await navigator.clipboard.writeText(textToCopy.trim());
+      setCopySuccessMessage('クリップボードにコピーしました！');
+      setTimeout(() => setCopySuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('クリップボードへのコピーに失敗しました', err);
+      setCopySuccessMessage('コピーに失敗しました。');
+      setTimeout(() => setCopySuccessMessage(''), 3000);
+    }
+  };
+
   // CommentListに渡すonReplyハンドラ
   const handleReply = async (parentCommentId: string, content: string) => {
     await handleCommentSubmit(content, parentCommentId);
@@ -186,7 +215,11 @@ function ReviewDetail() {
       {activeStage && (
         <div>
           <div style={{ marginBottom: '1rem' }}>
-            <h3>レビュアー</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <h3>レビュアー</h3>
+              <button onClick={() => handleCopyToClipboard(activeStage)} style={{ padding: '0.3rem 0.8rem' }}>Slack投稿をコピー</button>
+            </div>
+            {copySuccessMessage && <div style={{ color: 'green', marginBottom: '0.5rem' }}>{copySuccessMessage}</div>}
             <ul style={{ listStyle: 'none', padding: 0 }}>
               {activeStage.assignments.map(assignment => (
                 <li key={assignment.reviewer.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>

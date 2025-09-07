@@ -108,6 +108,7 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
       id: stageRow.id,
       name: stageRow.name,
       repositoryUrl: stageRow.repository_url,
+      reviewerCount: stageRow.reviewer_count,
       assignments: assignments,
       comments: comments,
     };
@@ -129,6 +130,7 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
   return {
     id: reviewRow.id,
     title: reviewRow.title,
+    url: reviewRow.url,
     author: author,
     createdAt: reviewRow.created_at,
     stages: stages,
@@ -154,12 +156,14 @@ async function fetchStageTemplateDetails(templateId: string): Promise<StageTempl
   const stages: TemplateStage[] = stagesResult.rows.map(stageRow => ({
     name: stageRow.name,
     reviewerIds: stageRow.reviewer_ids,
+    reviewerCount: stageRow.reviewer_count,
   }));
 
   return {
     id: templateRow.id,
     name: templateRow.name,
     stages: stages,
+    isDefault: templateRow.is_default,
   };
 }
 
@@ -229,23 +233,23 @@ app.get('/api/reviews/:id', async (req, res) => {
 app.post('/api/reviews', async (req, res) => {
     // @ts-ignore
     const currentUser = req.currentUser as User;
-    const { title, stages } = req.body;
+    const { title, url, stages } = req.body;
     const newReviewId = uuidv4();
     const createdAt = new Date().toISOString();
 
     try {
         // Insert into review_requests table
         await client.query(
-            'INSERT INTO review_requests (id, title, author_id, created_at) VALUES ($1, $2, $3, $4)',
-            [newReviewId, title, currentUser.id, createdAt]
+            'INSERT INTO review_requests (id, title, url, author_id, created_at) VALUES ($1, $2, $3, $4, $5)',
+            [newReviewId, title, url, currentUser.id, createdAt]
         );
 
         // Insert stages and their assignments/comments (simplified for now)
         for (const stage of stages) {
             const newStageId = uuidv4();
             await client.query(
-                'INSERT INTO review_stages (id, review_request_id, name, repository_url) VALUES ($1, $2, $3, $4)',
-                [newStageId, newReviewId, stage.name, stage.repositoryUrl]
+                'INSERT INTO review_stages (id, review_request_id, name, repository_url, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
+                [newStageId, newReviewId, stage.name, stage.repositoryUrl, stage.reviewerCount]
             );
 
             for (const assignment of stage.assignments) {
@@ -270,6 +274,7 @@ app.post('/api/reviews', async (req, res) => {
         res.status(201).json({
             id: newReview.id,
             title: newReview.title,
+            url: newReview.url,
             author: currentUser, // Assuming currentUser is the author
             createdAt: newReview.created_at,
             stages: [], // Stages will be fetched later
@@ -285,13 +290,13 @@ app.post('/api/reviews', async (req, res) => {
 // PUT /api/reviews/:id
 app.put('/api/reviews/:id', async (req, res) => {
     const { id } = req.params;
-    const { title, stages } = req.body;
+    const { title, url, stages } = req.body;
 
     try {
         // Update review_requests table
         const updateReviewResult = await client.query(
-            'UPDATE review_requests SET title = $1 WHERE id = $2 RETURNING *',
-            [title, id]
+            'UPDATE review_requests SET title = $1, url = $2 WHERE id = $3 RETURNING *',
+            [title, url, id]
         );
 
         if (updateReviewResult.rows.length === 0) {
@@ -307,8 +312,8 @@ app.put('/api/reviews/:id', async (req, res) => {
         for (const stage of stages) {
             const newStageId = uuidv4();
             await client.query(
-                'INSERT INTO review_stages (id, review_request_id, name, repository_url) VALUES ($1, $2, $3, $4)',
-                [newStageId, id, stage.name, stage.repositoryUrl]
+                'INSERT INTO review_stages (id, review_request_id, name, repository_url, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
+                [newStageId, id, stage.name, stage.repositoryUrl, stage.reviewerCount]
             );
 
             for (const assignment of stage.assignments) {
@@ -514,28 +519,37 @@ app.get('/api/stage-templates', async (req, res) => {
 });
 
 app.post('/api/stage-templates', async (req, res) => {
-  const { name, stages } = req.body;
+  const { name, stages, isDefault } = req.body;
   const newTemplateId = uuidv4();
 
   try {
+    await client.query('BEGIN'); // Start transaction
+
+    if (isDefault) {
+      await client.query('UPDATE stage_templates SET is_default = false WHERE is_default = true');
+    }
+
     // Insert into stage_templates table
     await client.query(
-      'INSERT INTO stage_templates (id, name) VALUES ($1, $2)',
-      [newTemplateId, name]
+      'INSERT INTO stage_templates (id, name, is_default) VALUES ($1, $2, $3)',
+      [newTemplateId, name, !!isDefault]
     );
 
     // Insert template stages
     for (const stage of stages) {
       await client.query(
-        'INSERT INTO template_stages (id, stage_template_id, name, reviewer_ids) VALUES ($1, $2, $3, $4)',
-        [uuidv4(), newTemplateId, stage.name, stage.reviewerIds]
+        'INSERT INTO template_stages (id, stage_template_id, name, reviewer_ids, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
+        [uuidv4(), newTemplateId, stage.name, stage.reviewerIds, stage.reviewerCount]
       );
     }
+
+    await client.query('COMMIT'); // Commit transaction
 
     const newTemplate = await fetchStageTemplateDetails(newTemplateId);
     res.status(201).json(newTemplate);
 
   } catch (err) {
+    await client.query('ROLLBACK'); // Rollback transaction on error
     console.error('Error creating stage template', err);
     res.status(500).send('Internal Server Error');
   }
@@ -543,16 +557,23 @@ app.post('/api/stage-templates', async (req, res) => {
 
 app.put('/api/stage-templates/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, stages } = req.body;
+  const { name, stages, isDefault } = req.body;
 
   try {
+    await client.query('BEGIN'); // Start transaction
+
+    if (isDefault) {
+      await client.query('UPDATE stage_templates SET is_default = false WHERE is_default = true AND id != $1', [id]);
+    }
+
     // Update stage_templates table
     const updateTemplateResult = await client.query(
-      'UPDATE stage_templates SET name = $1 WHERE id = $2 RETURNING *',
-      [name, id]
+      'UPDATE stage_templates SET name = $1, is_default = $2 WHERE id = $3 RETURNING *',
+      [name, !!isDefault, id]
     );
 
     if (updateTemplateResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).send('Template not found');
     }
 
@@ -562,15 +583,18 @@ app.put('/api/stage-templates/:id', async (req, res) => {
     // Insert new template stages
     for (const stage of stages) {
       await client.query(
-        'INSERT INTO template_stages (id, stage_template_id, name, reviewer_ids) VALUES ($1, $2, $3, $4)',
-        [uuidv4(), id, stage.name, stage.reviewerIds]
+        'INSERT INTO template_stages (id, stage_template_id, name, reviewer_ids, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
+        [uuidv4(), id, stage.name, stage.reviewerIds, stage.reviewerCount]
       );
     }
+
+    await client.query('COMMIT'); // Commit transaction
 
     const updatedTemplate = await fetchStageTemplateDetails(id);
     res.json(updatedTemplate);
 
   } catch (err) {
+    await client.query('ROLLBACK'); // Rollback transaction on error
     console.error('Error updating stage template', err);
     res.status(500).send('Internal Server Error');
   }
@@ -592,6 +616,35 @@ app.delete('/api/stage-templates/:id', async (req, res) => {
     res.status(204).send();
   } catch (err) {
     console.error('Error deleting stage template', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Set a template as the default
+app.put('/api/stage-templates/:id/default', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await client.query('BEGIN'); // Start transaction
+
+    // Unset the current default
+    await client.query('UPDATE stage_templates SET is_default = false WHERE is_default = true');
+
+    // Set the new default
+    const result = await client.query('UPDATE stage_templates SET is_default = true WHERE id = $1 RETURNING *', [id]);
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).send('Template not found');
+    }
+
+    await client.query('COMMIT'); // Commit transaction
+
+    res.status(200).json(result.rows[0]);
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error setting default template', err);
     res.status(500).send('Internal Server Error');
   }
 });

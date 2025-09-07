@@ -48,12 +48,14 @@ export interface ReviewStage {
   assignments: ReviewAssignment[];
   comments: Comment[];
   repositoryUrl: string;
+  reviewerCount: number;
 }
 
 // レビュー依頼
 export interface ReviewRequest {
   id: string;
   title: string;
+  url: string;
   author: User;
   createdAt: string;
   stages: ReviewStage[];
@@ -66,6 +68,7 @@ export interface ReviewRequest {
 export interface TemplateStage {
   name: string;
   reviewerIds: string[];
+  reviewerCount: number;
 }
 
 // ステージテンプレート
@@ -73,4 +76,5 @@ export interface StageTemplate {
   id: string;
   name: string;
   stages: TemplateStage[];
+  isDefault?: boolean;
 }
