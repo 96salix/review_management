@@ -7,6 +7,7 @@ import StageTemplateManagement from './pages/StageTemplateManagement'; // Import
 import ReviewDetail from './pages/ReviewDetail';
 import NewReview from './pages/NewReview';
 import EditReview from './pages/EditReview'; // Import EditReview
+import GlobalSettingsPage from './pages/GlobalSettings';
 
 import { User } from './types'; // User型をインポート
 import { addAuthHeader } from './utils/api';
@@ -117,6 +118,7 @@ const Header = () => {
             }}>
               <Link to="/users" className="button" style={{ display: 'block', width: '100%', textAlign: 'left', marginBottom: '0.5rem' }}>ユーザー管理</Link>
               <Link to="/stage-templates" className="button" style={{ display: 'block', width: '100%', textAlign: 'left' }}>テンプレート管理</Link>
+              <Link to="/settings" className="button" style={{ display: 'block', width: '100%', textAlign: 'left', marginTop: '0.5rem' }}>グローバル設定</Link>
             </div>
           )}
         </div>
@@ -149,6 +151,7 @@ function App() {
           <Route path="/reviews/:id" element={<ReviewDetail />} />
           <Route path="/reviews/:id/edit" element={<EditReview />} />
           <Route path="/new" element={<NewReview />} />
+          <Route path="/settings" element={<GlobalSettingsPage />} />
         </Routes>
       </MainContent>
     </Router>

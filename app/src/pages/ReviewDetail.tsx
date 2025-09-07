@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ReviewRequest, ReviewStatusValue, ReviewStage } from '../types';
+import { ReviewRequest, ReviewStatusValue, ReviewStage, GlobalSettings } from '../types';
 import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
 import { addAuthHeader } from '../utils/api';
 
 interface CommentItemProps {
   comment: Comment;
-  onReply: (parentCommentId: string) => void;
+  onReply: (parentCommentId: string, content: string) => void;
 }
 
 const CommentItem: React.FC<CommentItemProps> = ({ comment, onReply }) => {
@@ -62,7 +62,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, onReply }) => {
 
 interface CommentListProps {
   comments: Comment[];
-  onReply: (parentCommentId: string) => void;
+  onReply: (parentCommentId: string, content: string) => void;
 }
 
 const CommentList: React.FC<CommentListProps> = ({ comments, onReply }) => {
@@ -82,6 +82,25 @@ function ReviewDetail() {
   const [error, setError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
   const [copySuccessMessage, setCopySuccessMessage] = useState('');
+  const [settings, setSettings] = useState<GlobalSettings | null>(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch('/api/settings', addAuthHeader());
+        if (!response.ok) {
+          throw new Error('Failed to fetch settings');
+        }
+        const data = await response.json();
+        setSettings(data);
+      } catch (err) {
+        // Silently fail or show a less intrusive error
+        console.error(err);
+      }
+    };
+
+    fetchSettings();
+  }, []);
 
   const fetchReview = async () => {
     try {
@@ -146,6 +165,7 @@ function ReviewDetail() {
     if (!review) return;
 
     const reviewers = stage.assignments.map(a => `@${a.reviewer.name}`).join(' ');
+    const reviewUrl = settings?.serviceDomain ? `${settings.serviceDomain}/reviews/${review.id}` : window.location.href;
     const textToCopy = `
 レビューをお願いします！
 
@@ -156,7 +176,7 @@ ${review.url}
 ${reviewers}
 
 ■レビュー詳細
-${window.location.href}
+${reviewUrl}
     `;
 
     try {

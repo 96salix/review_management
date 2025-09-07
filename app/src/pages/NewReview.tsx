@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, StageTemplate } from '../types'; // Import StageTemplate
+import { User, StageTemplate, GlobalSettings } from '../types'; // Import StageTemplate
 import { addAuthHeader } from '../utils/api';
 
 interface StageFormState {
@@ -15,15 +15,14 @@ function NewReview() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
-  const [stages, setStages] = useState<StageFormState[]>([
-    { id: 1, name: '1st Round', repositoryUrl: '', reviewerIds: [], reviewerCount: 0 },
-  ]);
+  const [stages, setStages] = useState<StageFormState[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [stageTemplates, setStageTemplates] = useState<StageTemplate[]>([]); // New state for templates
   const [selectedTemplateId, setSelectedTemplateId] = useState(''); // New state for selected template
   const [allUsers, setAllUsers] = useState<User[]>([]); // New state for all users
+  const [settings, setSettings] = useState<GlobalSettings | null>(null);
 
-  // Fetch all users on component mount
+  // Fetch all users and settings on component mount
   useEffect(() => {
     const fetchAllUsers = async () => {
       try {
@@ -36,6 +35,18 @@ function NewReview() {
       }
     };
     fetchAllUsers();
+
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch('/api/settings', addAuthHeader());
+        if (!response.ok) throw new Error('Failed to fetch settings');
+        const data = await response.json();
+        setSettings(data);
+      } catch (err) {
+        console.error('Failed to fetch settings', err);
+      }
+    };
+    fetchSettings();
   }, []);
 
   // Fetch stage templates on component mount
@@ -53,6 +64,15 @@ function NewReview() {
     fetchStageTemplates();
   }, []);
 
+  // Set initial stage after settings are loaded
+  useEffect(() => {
+    if (settings && stages.length === 0 && !selectedTemplateId) {
+      setStages([
+        { id: 1, name: '1st Round', repositoryUrl: '', reviewerIds: [], reviewerCount: settings.defaultReviewerCount || 0 },
+      ]);
+    }
+  }, [settings, stages.length, selectedTemplateId]);
+
   // Apply default template once templates are loaded
   useEffect(() => {
     if (stageTemplates.length > 0 && !selectedTemplateId) {
@@ -65,11 +85,11 @@ function NewReview() {
           name: s.name,
           repositoryUrl: '', // Repository URL is usually specific to the review, not template
           reviewerIds: s.reviewerIds,
-          reviewerCount: s.reviewerCount || s.reviewerIds.length || 3,
+          reviewerCount: s.reviewerCount || s.reviewerIds.length || settings?.defaultReviewerCount || 3,
         })));
       }
     }
-  }, [stageTemplates]);
+  }, [stageTemplates, settings]);
 
   const handleTemplateSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const templateId = e.target.value;
@@ -88,7 +108,7 @@ function NewReview() {
       }
     } else {
       // If "Select a template" is chosen, clear stages
-      setStages([{ id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: 0 }]);
+      setStages([{ id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: settings?.defaultReviewerCount || 0 }]);
     }
   };
 
@@ -99,7 +119,7 @@ function NewReview() {
   };
 
   const addStage = () => {
-    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: 3 }]);
+    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: settings?.defaultReviewerCount || 3 }]);
   };
 
   const removeStage = (index: number) => {

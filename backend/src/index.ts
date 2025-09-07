@@ -1,62 +1,32 @@
-
 import express from 'express';
 import cors from 'cors';
 import { ReviewRequest, User, ReviewStatus, ReviewStatusValue, StageTemplate, ActivityLog, ReviewStage, ReviewAssignment, Comment, TemplateStage } from './types';
 import { v4 as uuidv4 } from 'uuid';
-import { Client } from 'pg';
+import { pool, connectDb } from './db';
+import settingsRouter from './routes/settings';
 
 const app = express();
 const port = 3001;
-
-// Database connection setup
-const dbConfig = {
-  user: process.env.POSTGRES_USER || 'user',
-  host: process.env.POSTGRES_HOST || 'db',
-  database: process.env.POSTGRES_DB || 'review_management',
-  password: process.env.POSTGRES_PASSWORD || 'password',
-  port: 5432,
-};
-
-const client = new Client(dbConfig);
-
-const MAX_RETRIES = 5;
-const RETRY_DELAY = 5000; // 5 seconds
-
-async function connectDb(retries = MAX_RETRIES) {
-  try {
-    await client.connect();
-    console.log('Connected to PostgreSQL database');
-  } catch (err) {
-    console.error('Database connection error', err);
-    if (retries > 0) {
-      console.log(`Retrying connection in ${RETRY_DELAY / 1000} seconds... (${retries} retries left)`);
-      await new Promise(res => setTimeout(res, RETRY_DELAY));
-      await connectDb(retries - 1);
-    } else {
-      console.error('Could not connect to the database. Exiting.');
-      process.exit(1); // Exit if DB connection fails after all retries
-    }
-  }
-}
 
 connectDb();
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/settings', settingsRouter);
 
 async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | null> {
-  const reviewResult = await client.query('SELECT * FROM review_requests WHERE id = $1', [reviewId]);
+  const reviewResult = await pool.query('SELECT * FROM review_requests WHERE id = $1', [reviewId]);
   if (reviewResult.rows.length === 0) {
     return null;
   }
   const reviewRow = reviewResult.rows[0];
 
-  const authorResult = await client.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [reviewRow.author_id]);
+  const authorResult = await pool.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [reviewRow.author_id]);
   const author = authorResult.rows[0] || { id: reviewRow.author_id, name: 'Unknown User', avatarUrl: '' };
 
-  const stagesResult = await client.query('SELECT * FROM review_stages WHERE review_request_id = $1 ORDER BY name', [reviewId]);
+  const stagesResult = await pool.query('SELECT * FROM review_stages WHERE review_request_id = $1 ORDER BY name', [reviewId]);
   const stages: ReviewStage[] = await Promise.all(stagesResult.rows.map(async stageRow => {
-    const assignmentsResult = await client.query(`
+    const assignmentsResult = await pool.query(`
       SELECT ra.*, u.name AS reviewer_name, u.avatar_url AS reviewer_avatar_url
       FROM review_assignments ra
       JOIN users u ON ra.reviewer_id = u.id
@@ -75,9 +45,9 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
       };
     });
 
-    const commentsResult = await client.query('SELECT * FROM comments WHERE review_stage_id = $1 ORDER BY created_at', [stageRow.id]);
+    const commentsResult = await pool.query('SELECT * FROM comments WHERE review_stage_id = $1 ORDER BY created_at', [stageRow.id]);
     const allComments: Comment[] = await Promise.all(commentsResult.rows.map(async commentRow => {
-      const commentAuthorResult = await client.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [commentRow.author_id]);
+      const commentAuthorResult = await pool.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [commentRow.author_id]);
       const commentAuthor: User = commentAuthorResult.rows[0] || { id: commentRow.author_id, name: 'Unknown User', avatarUrl: '' };
       return {
         id: commentRow.id,
@@ -114,9 +84,9 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
     };
   }));
 
-  const activityLogsResult = await client.query('SELECT * FROM activity_logs WHERE review_request_id = $1 ORDER BY created_at DESC', [reviewId]);
+  const activityLogsResult = await pool.query('SELECT * FROM activity_logs WHERE review_request_id = $1 ORDER BY created_at DESC', [reviewId]);
   const activityLogs: ActivityLog[] = await Promise.all(activityLogsResult.rows.map(async logRow => {
-    const logUserResult = await client.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [logRow.user_id]);
+    const logUserResult = await pool.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [logRow.user_id]);
     const logUser = logUserResult.rows[0] || { id: logRow.user_id, name: 'Unknown User', avatarUrl: '' };
     return {
       id: logRow.id,
@@ -146,13 +116,13 @@ let reviews: ReviewRequest[] = [];
 
 
 async function fetchStageTemplateDetails(templateId: string): Promise<StageTemplate | null> {
-  const templateResult = await client.query('SELECT * FROM stage_templates WHERE id = $1', [templateId]);
+  const templateResult = await pool.query('SELECT * FROM stage_templates WHERE id = $1', [templateId]);
   if (templateResult.rows.length === 0) {
     return null;
   }
   const templateRow = templateResult.rows[0];
 
-  const stagesResult = await client.query('SELECT * FROM template_stages WHERE stage_template_id = $1 ORDER BY name', [templateId]);
+  const stagesResult = await pool.query('SELECT * FROM template_stages WHERE stage_template_id = $1 ORDER BY name', [templateId]);
   const stages: TemplateStage[] = stagesResult.rows.map(stageRow => ({
     name: stageRow.name,
     reviewerIds: stageRow.reviewer_ids,
@@ -176,7 +146,7 @@ app.use(async (req, res, next) => {
   const userId = req.headers['x-user-id'] as string; // フロントエンドから送られるカスタムヘッダー
   if (userId) {
     try {
-      const result = await client.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [userId]);
+      const result = await pool.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [userId]);
       if (result.rows.length > 0) {
         // @ts-ignore
         req.currentUser = result.rows[0];
@@ -202,7 +172,7 @@ app.use(async (req, res, next) => {
 // GET /api/reviews
 app.get('/api/reviews', async (req, res) => {
   try {
-    const result = await client.query('SELECT id FROM review_requests'); // Only fetch IDs
+    const result = await pool.query('SELECT id FROM review_requests'); // Only fetch IDs
     const reviewsData = await Promise.all(result.rows.map(async row => {
       const review = await fetchReviewDetails(row.id);
       return review;
@@ -239,7 +209,7 @@ app.post('/api/reviews', async (req, res) => {
 
     try {
         // Insert into review_requests table
-        await client.query(
+        await pool.query(
             'INSERT INTO review_requests (id, title, url, author_id, created_at) VALUES ($1, $2, $3, $4, $5)',
             [newReviewId, title, url, currentUser.id, createdAt]
         );
@@ -247,13 +217,13 @@ app.post('/api/reviews', async (req, res) => {
         // Insert stages and their assignments/comments (simplified for now)
         for (const stage of stages) {
             const newStageId = uuidv4();
-            await client.query(
+            await pool.query(
                 'INSERT INTO review_stages (id, review_request_id, name, repository_url, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
                 [newStageId, newReviewId, stage.name, stage.repositoryUrl, stage.reviewerCount]
             );
 
             for (const assignment of stage.assignments) {
-                await client.query(
+                await pool.query(
                     'INSERT INTO review_assignments (id, review_stage_id, reviewer_id, status) VALUES ($1, $2, $3, $4)',
                     [uuidv4(), newStageId, assignment.reviewer.id, assignment.status]
                 );
@@ -262,13 +232,13 @@ app.post('/api/reviews', async (req, res) => {
         }
 
         // Add CREATE activity log
-        await client.query(
+        await pool.query(
             'INSERT INTO activity_logs (id, review_request_id, type, user_id, details, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
             [uuidv4(), newReviewId, 'CREATE', currentUser.id, `レビュー依頼「${title}」を作成しました。`, createdAt]
         );
 
         // Fetch the newly created review to return it (simplified for now)
-        const result = await client.query('SELECT * FROM review_requests WHERE id = $1', [newReviewId]);
+        const result = await pool.query('SELECT * FROM review_requests WHERE id = $1', [newReviewId]);
         const newReview = result.rows[0];
 
         res.status(201).json({
@@ -294,7 +264,7 @@ app.put('/api/reviews/:id', async (req, res) => {
 
     try {
         // Update review_requests table
-        const updateReviewResult = await client.query(
+        const updateReviewResult = await pool.query(
             'UPDATE review_requests SET title = $1, url = $2 WHERE id = $3 RETURNING *',
             [title, url, id]
         );
@@ -304,20 +274,20 @@ app.put('/api/reviews/:id', async (req, res) => {
         }
 
         // Delete existing stages and assignments
-        await client.query('DELETE FROM review_assignments WHERE review_stage_id IN (SELECT id FROM review_stages WHERE review_request_id = $1)', [id]);
-        await client.query('DELETE FROM comments WHERE review_stage_id IN (SELECT id FROM review_stages WHERE review_request_id = $1)', [id]);
-        await client.query('DELETE FROM review_stages WHERE review_request_id = $1', [id]);
+        await pool.query('DELETE FROM review_assignments WHERE review_stage_id IN (SELECT id FROM review_stages WHERE review_request_id = $1)', [id]);
+        await pool.query('DELETE FROM comments WHERE review_stage_id IN (SELECT id FROM review_stages WHERE review_request_id = $1)', [id]);
+        await pool.query('DELETE FROM review_stages WHERE review_request_id = $1', [id]);
 
         // Insert new stages and their assignments
         for (const stage of stages) {
             const newStageId = uuidv4();
-            await client.query(
+            await pool.query(
                 'INSERT INTO review_stages (id, review_request_id, name, repository_url, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
                 [newStageId, id, stage.name, stage.repositoryUrl, stage.reviewerCount]
             );
 
             for (const assignment of stage.assignments) {
-                await client.query(
+                await pool.query(
                     'INSERT INTO review_assignments (id, review_stage_id, reviewer_id, status) VALUES ($1, $2, $3, $4)',
                     [uuidv4(), newStageId, assignment.reviewer.id, assignment.status]
                 );
@@ -343,7 +313,7 @@ app.put('/api/reviews/:reviewId/stages/:stageId/assignments/:reviewerId', async 
 
     try {
         // Find the assignment to get old status and reviewer name
-        const assignmentResult = await client.query(
+        const assignmentResult = await pool.query(
             `SELECT ra.status, u.name AS reviewer_name, rs.name AS stage_name
              FROM review_assignments ra
              JOIN users u ON ra.reviewer_id = u.id
@@ -360,7 +330,7 @@ app.put('/api/reviews/:reviewId/stages/:stageId/assignments/:reviewerId', async 
         const stageName = assignmentResult.rows[0].stage_name;
 
         // Update assignment status
-        const updateResult = await client.query(
+        const updateResult = await pool.query(
             'UPDATE review_assignments SET status = $1 WHERE review_stage_id = $2 AND reviewer_id = $3 RETURNING *',
             [status, stageId, reviewerId]
         );
@@ -370,13 +340,13 @@ app.put('/api/reviews/:reviewId/stages/:stageId/assignments/:reviewerId', async 
         }
 
         // Add STATUS_CHANGE activity log
-        await client.query(
+        await pool.query(
             'INSERT INTO activity_logs (id, review_request_id, type, user_id, details, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
             [uuidv4(), reviewId, 'STATUS_CHANGE', currentUser.id, `${reviewerName} のステータスが「${oldStatus}」から「${status}」に変更されました (ステージ: ${stageName})。`, createdAt]
         );
 
         // Fetch the updated review to return it (simplified for now)
-        const reviewResult = await client.query('SELECT * FROM review_requests WHERE id = $1', [reviewId]);
+        const reviewResult = await pool.query('SELECT * FROM review_requests WHERE id = $1', [reviewId]);
         if (reviewResult.rows.length === 0) {
             return res.status(404).send('Review not found after update');
         }
@@ -404,23 +374,23 @@ app.post('/api/reviews/:reviewId/stages/:stageId/comments', async (req, res) => 
 
     try {
         // Insert into comments table
-        const commentResult = await client.query(
+        const commentResult = await pool.query(
             'INSERT INTO comments (id, review_stage_id, author_id, content, created_at, line_number, parent_comment_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *'
             [uuidv4(), stageId, currentUser.id, content, createdAt, lineNumber, parentCommentId] // parentCommentId を追加
         );
         const newComment = commentResult.rows[0];
 
         // Add COMMENT activity log
-        const stageResult = await client.query('SELECT name FROM review_stages WHERE id = $1', [stageId]);
+        const stageResult = await pool.query('SELECT name FROM review_stages WHERE id = $1', [stageId]);
         const stageName = stageResult.rows.length > 0 ? stageResult.rows[0].name : 'Unknown Stage';
 
-        await client.query(
+        await pool.query(
             'INSERT INTO activity_logs (id, review_request_id, type, user_id, details, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
             [uuidv4(), reviewId, 'COMMENT', currentUser.id, `コメントを追加しました (ステージ: ${stageName})：「${content.substring(0, 50)}...」`, createdAt]
         );
 
         // Fetch the updated review to return it (simplified for now)
-        const reviewResult = await client.query('SELECT * FROM review_requests WHERE id = $1', [reviewId]);
+        const reviewResult = await pool.query('SELECT * FROM review_requests WHERE id = $1', [reviewId]);
         if (reviewResult.rows.length === 0) {
             return res.status(404).send('Review not found after comment');
         }
@@ -441,7 +411,7 @@ app.post('/api/reviews/:reviewId/stages/:stageId/comments', async (req, res) => 
 // --- User Management API Endpoints ---
 app.get('/api/users', async (req, res) => {
   try {
-    const result = await client.query('SELECT * FROM users');
+    const result = await pool.query('SELECT * FROM users');
     res.json(result.rows);
   } catch (err) {
     console.error('Error fetching users', err);
@@ -456,7 +426,7 @@ app.post('/api/users', async (req, res) => {
   const userAvatarUrl = avatarUrl || defaultAvatarUrl;
 
   try {
-    const result = await client.query(
+    const result = await pool.query(
       'INSERT INTO users (id, name, avatar_url) VALUES ($1, $2, $3) RETURNING *',
       [newId, name, userAvatarUrl]
     );
@@ -472,7 +442,7 @@ app.put('/api/users/:id', async (req, res) => {
   const { name, avatarUrl } = req.body;
 
   try {
-    const result = await client.query(
+    const result = await pool.query(
       'UPDATE users SET name = COALESCE($1, name), avatar_url = COALESCE($2, avatar_url) WHERE id = $3 RETURNING *',
       [name, avatarUrl, id]
     );
@@ -491,7 +461,7 @@ app.delete('/api/users/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const result = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
+    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).send('User not found');
@@ -506,7 +476,7 @@ app.delete('/api/users/:id', async (req, res) => {
 // --- Stage Template API Endpoints ---
 app.get('/api/stage-templates', async (req, res) => {
   try {
-    const result = await client.query('SELECT id FROM stage_templates'); // Only fetch IDs
+    const result = await pool.query('SELECT id FROM stage_templates'); // Only fetch IDs
     const templatesData = await Promise.all(result.rows.map(async row => {
       const template = await fetchStageTemplateDetails(row.id);
       return template;
@@ -523,33 +493,33 @@ app.post('/api/stage-templates', async (req, res) => {
   const newTemplateId = uuidv4();
 
   try {
-    await client.query('BEGIN'); // Start transaction
+    await pool.query('BEGIN'); // Start transaction
 
     if (isDefault) {
-      await client.query('UPDATE stage_templates SET is_default = false WHERE is_default = true');
+      await pool.query('UPDATE stage_templates SET is_default = false WHERE is_default = true');
     }
 
     // Insert into stage_templates table
-    await client.query(
+    await pool.query(
       'INSERT INTO stage_templates (id, name, is_default) VALUES ($1, $2, $3)',
       [newTemplateId, name, !!isDefault]
     );
 
     // Insert template stages
     for (const stage of stages) {
-      await client.query(
+      await pool.query(
         'INSERT INTO template_stages (id, stage_template_id, name, reviewer_ids, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
         [uuidv4(), newTemplateId, stage.name, stage.reviewerIds, stage.reviewerCount]
       );
     }
 
-    await client.query('COMMIT'); // Commit transaction
+    await pool.query('COMMIT'); // Commit transaction
 
     const newTemplate = await fetchStageTemplateDetails(newTemplateId);
     res.status(201).json(newTemplate);
 
   } catch (err) {
-    await client.query('ROLLBACK'); // Rollback transaction on error
+    await pool.query('ROLLBACK'); // Rollback transaction on error
     console.error('Error creating stage template', err);
     res.status(500).send('Internal Server Error');
   }
@@ -560,41 +530,41 @@ app.put('/api/stage-templates/:id', async (req, res) => {
   const { name, stages, isDefault } = req.body;
 
   try {
-    await client.query('BEGIN'); // Start transaction
+    await pool.query('BEGIN'); // Start transaction
 
     if (isDefault) {
-      await client.query('UPDATE stage_templates SET is_default = false WHERE is_default = true AND id != $1', [id]);
+      await pool.query('UPDATE stage_templates SET is_default = false WHERE is_default = true AND id != $1', [id]);
     }
 
     // Update stage_templates table
-    const updateTemplateResult = await client.query(
+    const updateTemplateResult = await pool.query(
       'UPDATE stage_templates SET name = $1, is_default = $2 WHERE id = $3 RETURNING *',
       [name, !!isDefault, id]
     );
 
     if (updateTemplateResult.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await pool.query('ROLLBACK');
       return res.status(404).send('Template not found');
     }
 
     // Delete existing template stages
-    await client.query('DELETE FROM template_stages WHERE stage_template_id = $1', [id]);
+    await pool.query('DELETE FROM template_stages WHERE stage_template_id = $1', [id]);
 
     // Insert new template stages
     for (const stage of stages) {
-      await client.query(
+      await pool.query(
         'INSERT INTO template_stages (id, stage_template_id, name, reviewer_ids, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
         [uuidv4(), id, stage.name, stage.reviewerIds, stage.reviewerCount]
       );
     }
 
-    await client.query('COMMIT'); // Commit transaction
+    await pool.query('COMMIT'); // Commit transaction
 
     const updatedTemplate = await fetchStageTemplateDetails(id);
     res.json(updatedTemplate);
 
   } catch (err) {
-    await client.query('ROLLBACK'); // Rollback transaction on error
+    await pool.query('ROLLBACK'); // Rollback transaction on error
     console.error('Error updating stage template', err);
     res.status(500).send('Internal Server Error');
   }
@@ -605,10 +575,10 @@ app.delete('/api/stage-templates/:id', async (req, res) => {
 
   try {
     // Delete associated template stages first
-    await client.query('DELETE FROM template_stages WHERE stage_template_id = $1', [id]);
+    await pool.query('DELETE FROM template_stages WHERE stage_template_id = $1', [id]);
 
     // Delete the stage template
-    const result = await client.query('DELETE FROM stage_templates WHERE id = $1 RETURNING id', [id]);
+    const result = await pool.query('DELETE FROM stage_templates WHERE id = $1 RETURNING id', [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).send('Template not found');
@@ -625,25 +595,25 @@ app.put('/api/stage-templates/:id/default', async (req, res) => {
   const { id } = req.params;
 
   try {
-    await client.query('BEGIN'); // Start transaction
+    await pool.query('BEGIN'); // Start transaction
 
     // Unset the current default
-    await client.query('UPDATE stage_templates SET is_default = false WHERE is_default = true');
+    await pool.query('UPDATE stage_templates SET is_default = false WHERE is_default = true');
 
     // Set the new default
-    const result = await client.query('UPDATE stage_templates SET is_default = true WHERE id = $1 RETURNING *', [id]);
+    const result = await pool.query('UPDATE stage_templates SET is_default = true WHERE id = $1 RETURNING *', [id]);
 
     if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await pool.query('ROLLBACK');
       return res.status(404).send('Template not found');
     }
 
-    await client.query('COMMIT'); // Commit transaction
+    await pool.query('COMMIT'); // Commit transaction
 
     res.status(200).json(result.rows[0]);
 
   } catch (err) {
-    await client.query('ROLLBACK');
+    await pool.query('ROLLBACK');
     console.error('Error setting default template', err);
     res.status(500).send('Internal Server Error');
   }

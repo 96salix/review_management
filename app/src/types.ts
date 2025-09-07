@@ -78,3 +78,9 @@ export interface StageTemplate {
   stages: TemplateStage[];
   isDefault?: boolean;
 }
+
+// --- Global Settings ---
+export interface GlobalSettings {
+  serviceDomain: string;
+  defaultReviewerCount: number;
+}

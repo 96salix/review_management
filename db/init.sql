@@ -59,3 +59,11 @@ CREATE TABLE IF NOT EXISTS template_stages (
     reviewer_ids TEXT[] NOT NULL,
     reviewer_count INTEGER
 );
+
+CREATE TABLE IF NOT EXISTS global_settings (
+    id INT PRIMARY KEY,
+    service_domain VARCHAR(255),
+    default_reviewer_count INTEGER
+);
+
+INSERT INTO global_settings (id, service_domain, default_reviewer_count) VALUES (1, 'http://localhost:5174', 3) ON CONFLICT (id) DO NOTHING;
