@@ -50,12 +50,12 @@ function ReviewList() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {review.stages.flatMap(s => s.assignments).map(a => (
+                    {Array.from(new Map(review.stages.flatMap(s => s.assignments).map(a => [a.reviewer.id, a.reviewer])).values()).map(reviewer => (
                         <img
-                            key={a.reviewer.id}
-                            src={a.reviewer.avatarUrl}
-                            alt={a.reviewer.name}
-                            title={`${a.reviewer.name} (${a.status})`}
+                            key={reviewer.id}
+                            src={reviewer.avatarUrl}
+                            alt={reviewer.name}
+                            title={reviewer.name}
                             style={{
                                 width: '40px',
                                 height: '40px',
