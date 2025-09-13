@@ -42,6 +42,7 @@ export interface ReviewStage {
   comments: Comment[];
   repositoryUrl: string;
   reviewerCount: number;
+  dueDate?: string; // レビュー期日
 }
 
 // アクティビティログ

@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS review_stages (
     review_request_id VARCHAR(255) NOT NULL REFERENCES review_requests(id),
     name VARCHAR(255) NOT NULL,
     repository_url VARCHAR(255),
-    reviewer_count INTEGER
+    reviewer_count INTEGER,
+    due_date DATE
 );
 
 CREATE TABLE IF NOT EXISTS review_assignments (

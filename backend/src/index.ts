@@ -79,6 +79,7 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
       name: stageRow.name,
       repositoryUrl: stageRow.repository_url,
       reviewerCount: stageRow.reviewer_count,
+      dueDate: stageRow.due_date, // dueDate を追加
       assignments: assignments,
       comments: comments,
     };
@@ -171,15 +172,73 @@ app.use(async (req, res, next) => {
 
 // GET /api/reviews
 app.get('/api/reviews', async (req, res) => {
+  const { sortBy = 'createdAt', order = 'desc' } = req.query;
+
   try {
-    const result = await pool.query('SELECT id FROM review_requests'); // Only fetch IDs
+    let orderByClause;
+    if (sortBy === 'dueDate') {
+      // 各レビュー依頼の最も早い期日を計算し、それでソートする
+      orderByClause = `(
+        SELECT MIN(due_date)
+        FROM review_stages
+        WHERE review_stages.review_request_id = review_requests.id
+      ) ${order === 'asc' ? 'ASC NULLS LAST' : 'DESC NULLS FIRST'}`;
+    } else {
+      orderByClause = `created_at ${order}`;
+    }
+
+    const result = await pool.query(`
+      SELECT id
+      FROM review_requests
+      ORDER BY ${orderByClause}
+    `);
+
     const reviewsData = await Promise.all(result.rows.map(async row => {
       const review = await fetchReviewDetails(row.id);
       return review;
     }));
-    res.json(reviewsData.filter(Boolean)); // Filter out nulls if any
+    res.json(reviewsData.filter(Boolean));
   } catch (err) {
     console.error('Error fetching reviews', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// GET /api/reviews/my
+app.get('/api/reviews/my', async (req, res) => {
+  // @ts-ignore
+  const currentUser = req.currentUser as User;
+  if (!currentUser) {
+    return res.status(401).send('Unauthorized');
+  }
+
+  const { sortBy = 'createdAt', order = 'desc' } = req.query;
+
+  try {
+    let orderByClause;
+    if (sortBy === 'dueDate') {
+      orderByClause = `min_due_date ${order === 'asc' ? 'ASC NULLS LAST' : 'DESC NULLS FIRST'}`;
+    } else {
+      orderByClause = `created_at ${order}`;
+    }
+
+    const result = await pool.query(`
+      SELECT r.id, r.created_at, MIN(s.due_date) as min_due_date
+      FROM review_requests r
+      JOIN review_stages s ON r.id = s.review_request_id
+      JOIN review_assignments a ON s.id = a.review_stage_id
+      WHERE a.reviewer_id = $1
+      GROUP BY r.id, r.created_at
+      ORDER BY ${orderByClause}
+    `, [currentUser.id]);
+
+    const reviewsData = await Promise.all(result.rows.map(async row => {
+      return await fetchReviewDetails(row.id);
+    }));
+
+    res.json(reviewsData.filter(Boolean));
+  } catch (err) {
+    console.error('Error fetching my reviews', err);
     res.status(500).send('Internal Server Error');
   }
 });
@@ -218,8 +277,8 @@ app.post('/api/reviews', async (req, res) => {
         for (const stage of stages) {
             const newStageId = uuidv4();
             await pool.query(
-                'INSERT INTO review_stages (id, review_request_id, name, repository_url, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
-                [newStageId, newReviewId, stage.name, stage.repositoryUrl, stage.reviewerCount]
+                'INSERT INTO review_stages (id, review_request_id, name, repository_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6)',
+                [newStageId, newReviewId, stage.name, stage.repositoryUrl, stage.reviewerCount, stage.dueDate]
             );
 
             for (const assignment of stage.assignments) {
@@ -282,8 +341,8 @@ app.put('/api/reviews/:id', async (req, res) => {
         for (const stage of stages) {
             const newStageId = uuidv4();
             await pool.query(
-                'INSERT INTO review_stages (id, review_request_id, name, repository_url, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
-                [newStageId, id, stage.name, stage.repositoryUrl, stage.reviewerCount]
+                'INSERT INTO review_stages (id, review_request_id, name, repository_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6)',
+                [newStageId, id, stage.name, stage.repositoryUrl, stage.reviewerCount, stage.dueDate]
             );
 
             for (const assignment of stage.assignments) {
@@ -375,8 +434,8 @@ app.post('/api/reviews/:reviewId/stages/:stageId/comments', async (req, res) => 
     try {
         // Insert into comments table
         const commentResult = await pool.query(
-            'INSERT INTO comments (id, review_stage_id, author_id, content, created_at, line_number, parent_comment_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *'
-            [uuidv4(), stageId, currentUser.id, content, createdAt, lineNumber, parentCommentId] // parentCommentId を追加
+            'INSERT INTO comments (id, review_stage_id, author_id, content, created_at, line_number, parent_comment_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [uuidv4(), stageId, currentUser.id, content, createdAt, lineNumber, parentCommentId]
         );
         const newComment = commentResult.rows[0];
 

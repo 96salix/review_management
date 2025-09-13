@@ -9,6 +9,7 @@ interface StageFormState {
   repositoryUrl: string;
   reviewerIds: string[];
   reviewerCount: number;
+  dueDate: string;
 }
 
 function NewReview() {
@@ -68,7 +69,7 @@ function NewReview() {
   useEffect(() => {
     if (settings && stages.length === 0 && !selectedTemplateId) {
       setStages([
-        { id: 1, name: '1st Round', repositoryUrl: '', reviewerIds: [], reviewerCount: settings.defaultReviewerCount || 0 },
+        { id: 1, name: '1st Round', repositoryUrl: '', reviewerIds: [], reviewerCount: settings.defaultReviewerCount || 0, dueDate: '' },
       ]);
     }
   }, [settings, stages.length, selectedTemplateId]);
@@ -86,6 +87,7 @@ function NewReview() {
           repositoryUrl: '', // Repository URL is usually specific to the review, not template
           reviewerIds: s.reviewerIds,
           reviewerCount: s.reviewerCount || s.reviewerIds.length || settings?.defaultReviewerCount || 3,
+          dueDate: ''
         })));
       }
     }
@@ -104,11 +106,12 @@ function NewReview() {
           repositoryUrl: '', // Repository URL is usually specific to the review, not template
           reviewerIds: s.reviewerIds,
           reviewerCount: s.reviewerIds.length,
+          dueDate: ''
         })));
       }
     } else {
       // If "Select a template" is chosen, clear stages
-      setStages([{ id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: settings?.defaultReviewerCount || 0 }]);
+      setStages([{ id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: settings?.defaultReviewerCount || 0, dueDate: '' }]);
     }
   };
 
@@ -119,7 +122,7 @@ function NewReview() {
   };
 
   const addStage = () => {
-    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: settings?.defaultReviewerCount || 3 }]);
+    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: settings?.defaultReviewerCount || 3, dueDate: '' }]);
   };
 
   const removeStage = (index: number) => {
@@ -171,6 +174,7 @@ function NewReview() {
       name: stage.name,
       repositoryUrl: stage.repositoryUrl,
       reviewerCount: stage.reviewerCount,
+      dueDate: stage.dueDate || null,
       assignments: stage.reviewerIds.map(reviewerId => ({
         reviewer: allUsers.find(u => u.id === reviewerId)!,
         status: 'pending' as const,
@@ -260,6 +264,14 @@ function NewReview() {
                 type="text"
                 value={stage.repositoryUrl}
                 onChange={(e) => handleStageChange(index, 'repositoryUrl', e.target.value)}
+              />
+            </div>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <label>期日</label>
+              <input
+                type="date"
+                value={stage.dueDate}
+                onChange={(e) => handleStageChange(index, 'dueDate', e.target.value)}
               />
             </div>
             <div>

@@ -234,6 +234,11 @@ ${reviewUrl}
 
       {activeStage && (
         <div>
+          {activeStage.dueDate && (
+            <p style={{ margin: 0, color: 'var(--secondary-color)', marginBottom: '1rem' }}>
+              期日: <strong>{new Date(activeStage.dueDate).toLocaleDateString()}</strong>
+            </p>
+          )}
           <div style={{ marginBottom: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <h3>レビュアー</h3>

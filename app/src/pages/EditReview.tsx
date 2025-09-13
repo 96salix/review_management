@@ -10,6 +10,7 @@ interface StageFormState {
   repositoryUrl: string;
   reviewerIds: string[];
   reviewerCount: number;
+  dueDate: string;
 }
 
 function EditReview() {
@@ -63,6 +64,7 @@ function EditReview() {
           repositoryUrl: s.repositoryUrl,
           reviewerIds: s.assignments.map(a => a.reviewer.id),
           reviewerCount: s.reviewerCount || s.assignments.length,
+          dueDate: s.dueDate ? new Date(s.dueDate).toISOString().split('T')[0] : '',
         })));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
@@ -85,6 +87,7 @@ function EditReview() {
           repositoryUrl: '',
           reviewerIds: s.reviewerIds,
           reviewerCount: s.reviewerIds.length,
+          dueDate: ''
         })));
       }
     } else {
@@ -99,7 +102,7 @@ function EditReview() {
   };
 
   const addStage = () => {
-    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: 3 }]);
+    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: 3, dueDate: '' }]);
   };
 
   const removeStage = (index: number) => {
@@ -151,6 +154,7 @@ function EditReview() {
       name: stage.name,
       repositoryUrl: stage.repositoryUrl,
       reviewerCount: stage.reviewerCount,
+      dueDate: stage.dueDate || null,
       assignments: stage.reviewerIds.map(reviewerId => ({
         reviewer: allUsers.find(u => u.id === reviewerId)!,
         status: 'pending' as const,
@@ -239,6 +243,14 @@ function EditReview() {
                 type="text"
                 value={stage.repositoryUrl}
                 onChange={(e) => handleStageChange(index, 'repositoryUrl', e.target.value)}
+              />
+            </div>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <label>期日</label>
+              <input
+                type="date"
+                value={stage.dueDate}
+                onChange={(e) => handleStageChange(index, 'dueDate', e.target.value)}
               />
             </div>
             <div>

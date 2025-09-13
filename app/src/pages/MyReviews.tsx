@@ -5,82 +5,44 @@ import { ReviewRequest, ReviewAssignment, ReviewStage, ReviewStatusValue } from 
 import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
 import { addAuthHeader } from '../utils/api';
 
-// Define a new shape for the component's state
-interface GroupedReview {
-  review: ReviewRequest;
-  myAssignments: {
-    stage: ReviewStage;
-    assignment: ReviewAssignment;
-  }[];
-}
+
 
 function MyReviews() {
-  const [groupedReviews, setGroupedReviews] = useState<GroupedReview[]>([]);
+  const [reviews, setReviews] = useState<ReviewRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null); // State to hold current user ID
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [order, setOrder] = useState('desc');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const storedUserId = localStorage.getItem('currentUserId');
     if (storedUserId) {
       setCurrentUserId(storedUserId);
     }
-  }, []); // Run once on mount to get initial user ID
-
-  const fetchData = async () => {
-    try {
-      const response = await fetch('/api/reviews', addAuthHeader());
-      if (!response.ok) throw new Error('Network response was not ok');
-      const allReviews: ReviewRequest[] = await response.json();
-
-      // Group assignments by review request
-      const groupedMap = allReviews.reduce((acc, review) => {
-        const myAssignmentsInReview = [];
-        for (const stage of review.stages) {
-          const myAssignment = stage.assignments.find(a => a.reviewer.id === currentUserId);
-          if (myAssignment) {
-            myAssignmentsInReview.push({ stage, assignment: myAssignment });
-          }
-        }
-
-        if (myAssignmentsInReview.length > 0) {
-          acc.set(review.id, { review, myAssignments: myAssignmentsInReview });
-        }
-        return acc;
-      }, new Map<string, GroupedReview>());
-
-      let sortedReviews = Array.from(groupedMap.values());
-
-      // Apply sorting logic here
-      const statusOrder = {
-        'pending': 1,
-        'answered': 2,
-        'commented': 3,
-        'lgtm': 4,
-      };
-
-      sortedReviews.sort((a, b) => {
-        const aWorstStatus = Math.min(...a.myAssignments.map(assign => statusOrder[assign.assignment.status]));
-        const bWorstStatus = Math.min(...b.myAssignments.map(assign => statusOrder[assign.assignment.status]));
-
-        if (aWorstStatus !== bWorstStatus) {
-          return aWorstStatus - bWorstStatus;
-        }
-
-        return new Date(b.review.createdAt).getTime() - new Date(a.review.createdAt).getTime();
-      });
-
-      setGroupedReviews(sortedReviews);
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
-    }
-  };
+  }, []);
 
   useEffect(() => {
-    if (currentUserId) { // Only fetch data if currentUserId is available
-      fetchData();
-    }
-  }, [currentUserId]); // Re-fetch data when currentUserId changes
+    if (!currentUserId) return;
+
+    const fetchMyReviews = async () => {
+      try {
+        const response = await fetch(`/api/reviews/my?sortBy=${sortBy}&order=${order}`, addAuthHeader());
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        setReviews(data);
+      } catch (error) {
+        if (error instanceof Error) {
+            setError(error.message);
+        } else {
+            setError('An unknown error occurred');
+        }
+      }
+    };
+
+    fetchMyReviews();
+  }, [currentUserId, sortBy, order]);
 
   const handleStatusChange = async (reviewId: string, stageId: string, newStatus: ReviewStatusValue) => {
     try {
@@ -91,23 +53,28 @@ function MyReviews() {
         }));
         if (!response.ok) throw new Error('Failed to update status');
         // Instead, update the state directly
-        setGroupedReviews(prevGroupedReviews => {
-            return prevGroupedReviews.map(group => {
-                if (group.review.id === reviewId) {
+        setReviews(prevReviews => {
+            return prevReviews.map(review => {
+                if (review.id === reviewId) {
                     return {
-                        ...group,
-                        myAssignments: group.myAssignments.map(assign => {
-                            if (assign.stage.id === stageId && assign.assignment.reviewer.id === currentUserId) {
+                        ...review,
+                        stages: review.stages.map(stage => {
+                            if (stage.id === stageId) {
                                 return {
-                                    ...assign,
-                                    assignment: { ...assign.assignment, status: newStatus }
+                                    ...stage,
+                                    assignments: stage.assignments.map(assign => {
+                                        if (assign.reviewer.id === currentUserId) {
+                                            return { ...assign, status: newStatus };
+                                        }
+                                        return assign;
+                                    })
                                 };
                             }
-                            return assign;
+                            return stage;
                         })
                     };
                 }
-                return group;
+                return review;
             });
         });
     } catch (err) {
@@ -123,34 +90,60 @@ function MyReviews() {
     <div>
       <div className="page-header">
         <h1>自分のレビュー</h1>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+            <option value="createdAt">作成日</option>
+            <option value="dueDate">期日</option>
+          </select>
+          <select value={order} onChange={e => setOrder(e.target.value)}>
+            <option value="desc">降順</option>
+            <option value="asc">昇順</option>
+          </select>
+        </div>
       </div>
       <div>
-        {groupedReviews.length > 0 ? groupedReviews.map(({ review, myAssignments }) => (
-          <div key={review.id} className={`card ${myAssignments.every(a => a.assignment.status === 'lgtm') ? 'lgtm-card' : ''}`}>
-            <h2 style={{ marginBottom: '1rem' }}>
-                <Link to={`/reviews/${review.id}`}>{review.title}</Link>
-            </h2>
-            {myAssignments.map(({ stage, assignment }) => (
-              <div key={stage.id} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                    <div>
-                        <p style={{ margin: 0 }}><strong>ステージ:</strong> {stage.name}</p>
-                        <p style={{ margin: '0.5rem 0' }}>
-                            <strong>URL:</strong> <a href={stage.repositoryUrl} target="_blank" rel="noopener noreferrer">{stage.repositoryUrl}</a>
-                        </p>
-                    </div>
-                    <div>
-                        <label><strong>自分のステータス:</strong></label>
-                        <StatusSelector 
-                            currentStatus={assignment.status} 
-                            onStatusChange={(newStatus) => handleStatusChange(review.id, stage.id, newStatus)} 
-                        />
-                    </div>
+        {reviews.length > 0 ? reviews.map(review => {
+          const myAssignments = review.stages
+            .flatMap(stage => stage.assignments.map(assignment => ({ stage, assignment })))
+            .filter(({ assignment }) => assignment.reviewer.id === currentUserId);
+
+          const nearestDueDate = review.stages
+            .map(s => s.dueDate)
+            .filter(Boolean)
+            .map(d => new Date(d!))
+            .sort((a, b) => a.getTime() - b.getTime())[0];
+
+          return (
+            <div key={review.id} className={`card ${myAssignments.every(a => a.assignment.status === 'lgtm') ? 'lgtm-card' : ''}`}>
+              <h2 style={{ marginBottom: '1rem' }}>
+                  <Link to={`/reviews/${review.id}`}>{review.title}</Link>
+              </h2>
+              <p style={{ margin: 0, color: 'var(--secondary-color)' }}>
+                  依頼者: <strong>{review.author.name}</strong> / 作成日: {new Date(review.createdAt).toLocaleDateString()}
+                  {nearestDueDate && ` / 期日: ${new Date(nearestDueDate).toLocaleDateString()}`}
+              </p>
+              {myAssignments.map(({ stage, assignment }) => (
+                <div key={stage.id} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                      <div>
+                          <p style={{ margin: 0 }}><strong>ステージ:</strong> {stage.name}</p>
+                          <p style={{ margin: '0.5rem 0' }}>
+                              <strong>URL:</strong> <a href={stage.repositoryUrl} target="_blank" rel="noopener noreferrer">{stage.repositoryUrl}</a>
+                          </p>
+                      </div>
+                      <div>
+                          <label><strong>自分のステータス:</strong></label>
+                          <StatusSelector 
+                              currentStatus={assignment.status} 
+                              onStatusChange={(newStatus) => handleStatusChange(review.id, stage.id, newStatus)} 
+                          />
+                      </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )) : <p>担当するレビューはありません。</p>}
+              ))}
+            </div>
+          );
+        }) : <p>担当するレビューはありません。</p>}
       </div>
     </div>
   );

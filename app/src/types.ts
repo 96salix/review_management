@@ -49,6 +49,7 @@ export interface ReviewStage {
   comments: Comment[];
   repositoryUrl: string;
   reviewerCount: number;
+  dueDate?: string;
 }
 
 // レビュー依頼
