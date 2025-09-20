@@ -82,7 +82,6 @@ function ReviewDetail() {
   const [activeStageId, setActiveStageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
-  const [copySuccessMessage, setCopySuccessMessage] = useState('');
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
 
   useEffect(() => {
@@ -196,15 +195,7 @@ ${reviewers}
 ${reviewUrl}
     `;
 
-    try {
-      await navigator.clipboard.writeText(textToCopy.trim());
-      setCopySuccessMessage('クリップボードにコピーしました！');
-      setTimeout(() => setCopySuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('クリップボードへのコピーに失敗しました', err);
-      setCopySuccessMessage('コピーに失敗しました。');
-      setTimeout(() => setCopySuccessMessage(''), 3000);
-    }
+    setNewComment(textToCopy.trim());
   };
 
   const handleReply = async (parentCommentId: string, content: string) => {
@@ -261,7 +252,6 @@ ${reviewUrl}
               <h3>レビュアー</h3>
               <button onClick={() => handleCopyToClipboard(activeStage)} style={{ padding: '0.3rem 0.8rem' }}>Slack投稿をコピー</button>
             </div>
-            {copySuccessMessage && <div style={{ color: 'green', marginBottom: '0.5rem' }}>{copySuccessMessage}</div>}
             <ul style={{ listStyle: 'none', padding: 0 }}>
               {activeStage.assignments.map(assignment => (
                 <li key={assignment.reviewer.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
