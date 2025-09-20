@@ -134,7 +134,7 @@ function MyReviews() {
                           <p style={{ margin: 0 }}><strong>ステージ:</strong> {stage.name}</p>
                           {stage.dueDate && <p style={{ margin: '0.5rem 0 0 0', color: 'var(--secondary-color)' }}>期日: {new Date(stage.dueDate).toLocaleDateString()}</p>}
                           <p style={{ margin: '0.5rem 0' }}>
-                              <strong>URL:</strong> <a href={stage.repositoryUrl} target="_blank" rel="noopener noreferrer">{stage.repositoryUrl}</a>
+                              <strong>レビュー対象:</strong> <a href={stage.targetUrl} target="_blank" rel="noopener noreferrer">{stage.targetUrl}</a>
                           </p>
                       </div>
                       <div>

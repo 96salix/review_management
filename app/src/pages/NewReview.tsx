@@ -6,7 +6,7 @@ import { addAuthHeader } from '../utils/api';
 interface StageFormState {
   id: number;
   name: string;
-  repositoryUrl: string;
+  targetUrl: string;
   reviewerIds: string[];
   reviewerCount: number;
   dueDate: string;
@@ -15,7 +15,7 @@ interface StageFormState {
 function NewReview() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
-  const [url, setUrl] = useState('');
+  const [descriptionUrl, setDescriptionUrl] = useState('');
   const [stages, setStages] = useState<StageFormState[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [stageTemplates, setStageTemplates] = useState<StageTemplate[]>([]); // New state for templates
@@ -69,7 +69,7 @@ function NewReview() {
   useEffect(() => {
     if (settings && stages.length === 0 && !selectedTemplateId) {
       setStages([
-        { id: 1, name: '1st Round', repositoryUrl: '', reviewerIds: [], reviewerCount: settings.defaultReviewerCount || 0, dueDate: '' },
+        { id: 1, name: '1st Round', targetUrl: '', reviewerIds: [], reviewerCount: settings.defaultReviewerCount || 0, dueDate: '' },
       ]);
     }
   }, [settings, stages.length, selectedTemplateId]);
@@ -103,7 +103,7 @@ function NewReview() {
         setStages(selectedTemplate.stages.map((s, index) => ({
           id: Date.now() + index, // Generate new unique ID for form state
           name: s.name,
-          repositoryUrl: '', // Repository URL is usually specific to the review, not template
+          targetUrl: '', // Repository URL is usually specific to the review, not template
           reviewerIds: s.reviewerIds,
           reviewerCount: s.reviewerIds.length,
           dueDate: ''
@@ -111,7 +111,7 @@ function NewReview() {
       }
     } else {
       // If "Select a template" is chosen, clear stages
-      setStages([{ id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: settings?.defaultReviewerCount || 0, dueDate: '' }]);
+      setStages([{ id: Date.now(), name: '', targetUrl: '', reviewerIds: [], reviewerCount: settings?.defaultReviewerCount || 0, dueDate: '' }]);
     }
   };
 
@@ -122,7 +122,7 @@ function NewReview() {
   };
 
   const addStage = () => {
-    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: settings?.defaultReviewerCount || 3, dueDate: '' }]);
+    setStages([...stages, { id: Date.now(), name: '', targetUrl: '', reviewerIds: [], reviewerCount: settings?.defaultReviewerCount || 3, dueDate: '' }]);
   };
 
   const removeStage = (index: number) => {
@@ -172,7 +172,7 @@ function NewReview() {
     const apiStages = stages.map((stage, index) => ({
       id: String(Date.now() + index), // Temporary unique ID
       name: stage.name,
-      repositoryUrl: stage.repositoryUrl,
+      targetUrl: stage.targetUrl,
       reviewerCount: stage.reviewerCount,
       dueDate: stage.dueDate || null,
       assignments: stage.reviewerIds.map(reviewerId => ({
@@ -186,7 +186,7 @@ function NewReview() {
       const response = await fetch('/api/reviews', addAuthHeader({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, url, stages: apiStages }),
+        body: JSON.stringify({ title, descriptionUrl, stages: apiStages }),
       }));
 
       if (!response.ok) {
@@ -220,12 +220,12 @@ function NewReview() {
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
-          <label htmlFor="url">レビュー対象URL</label>
+          <label htmlFor="descriptionUrl">対象案件の概要/リンク</label>
           <input
-            id="url"
+            id="descriptionUrl"
             type="text"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            value={descriptionUrl}
+            onChange={(e) => setDescriptionUrl(e.target.value)}
           />
         </div>
 
@@ -259,11 +259,11 @@ function NewReview() {
               />
             </div>
             <div style={{ marginBottom: '0.75rem' }}>
-              <label>リポジトリURL</label>
+              <label>レビュー対象</label>
               <input
                 type="text"
-                value={stage.repositoryUrl}
-                onChange={(e) => handleStageChange(index, 'repositoryUrl', e.target.value)}
+                value={stage.targetUrl}
+                onChange={(e) => handleStageChange(index, 'targetUrl', e.target.value)}
               />
             </div>
             <div style={{ marginBottom: '0.75rem' }}>

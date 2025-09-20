@@ -62,8 +62,8 @@ router.post('/seed', async (req: Request, res: Response) => {
       const createdAt = new Date().toISOString();
 
       await pool.query(
-        'INSERT INTO review_requests (id, title, url, author_id, created_at) VALUES ($1, $2, $3, $4, $5)',
-        [reviewId, reviewTitles[i], `http://github.com/example/repo/pull/${i + 1}`, author.id, createdAt]
+        'INSERT INTO review_requests (id, title, description_url, author_id, created_at) VALUES ($1, $2, $3, $4, $5)',
+        [reviewId, reviewTitles[i], `http://example.com/overview/${i + 1}`, author.id, createdAt]
       );
 
       // Add a CREATE activity log
@@ -77,8 +77,8 @@ router.post('/seed', async (req: Request, res: Response) => {
       for (let j = 0; j < numStages; j++) {
         const stageId = uuidv4();
         await pool.query(
-          'INSERT INTO review_stages (id, review_request_id, name, stage_order, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6)',
-          [stageId, reviewId, `${j + 1}st Round`, j, 2, null]
+          'INSERT INTO review_stages (id, review_request_id, name, stage_order, target_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [stageId, reviewId, `${j + 1}st Round`, j, `http://github.com/example/repo/stage/${j + 1}`, 2, null]
         );
 
         // Add assignments

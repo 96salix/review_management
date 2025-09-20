@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ReviewRequest, ReviewStatusValue, ReviewStage, GlobalSettings } from '../types';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { ReviewRequest, ReviewStatusValue, ReviewStage, GlobalSettings, Comment } from '../types';
 import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
 import { addAuthHeader } from '../utils/api';
 
@@ -77,6 +77,7 @@ const CommentList: React.FC<CommentListProps> = ({ comments, onReply }) => {
 
 function ReviewDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [review, setReview] = useState<ReviewRequest | null>(null);
   const [activeStageId, setActiveStageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,8 +111,22 @@ function ReviewDetail() {
       }
       const data = await response.json();
       setReview(data);
-      if (!activeStageId && data.stages && data.stages.length > 0) {
-        setActiveStageId(data.stages[0].id);
+
+      const stageParam = searchParams.get('stage');
+      if (data.stages && data.stages.length > 0) {
+        let stageToActivate;
+        if (stageParam) {
+          const stageIndex = parseInt(stageParam, 10) - 1;
+          if (stageIndex >= 0 && stageIndex < data.stages.length) {
+            stageToActivate = data.stages[stageIndex];
+          }
+        }
+
+        if (stageToActivate) {
+          setActiveStageId(stageToActivate.id);
+        } else if (!activeStageId) {
+          setActiveStageId(data.stages[0].id);
+        }
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -126,7 +141,9 @@ function ReviewDetail() {
     if (id) {
       fetchReview();
     }
-  }, [id]);
+  }, [id, searchParams]); // Add searchParams to dependency array
+
+  const activeStage = review?.stages.find(s => s.id === activeStageId);
 
   const handleStatusChange = async (reviewerId: string, newStatus: ReviewStatusValue) => {
     if (!review || !activeStage) return;
@@ -150,7 +167,7 @@ function ReviewDetail() {
         const response = await fetch(`/api/reviews/${review.id}/stages/${activeStage.id}/comments`, addAuthHeader({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: content, parentCommentId: parentCommentId }), // parentCommentId を追加
+            body: JSON.stringify({ content: content, parentCommentId: parentCommentId }),
         }));
         if (!response.ok) throw new Error('Failed to post comment');
         const updatedReview = await response.json();
@@ -165,12 +182,12 @@ function ReviewDetail() {
     if (!review) return;
 
     const reviewers = stage.assignments.map(a => `@${a.reviewer.name}`).join(' ');
-    const reviewUrl = settings?.serviceDomain ? `${settings.serviceDomain}/reviews/${review.id}` : window.location.href;
+    const reviewUrl = settings?.serviceDomain ? `${settings.serviceDomain}/reviews/${review.id}?stage=${stage.stage_order + 1}` : `${window.location.origin}/reviews/${review.id}?stage=${stage.stage_order + 1}`;
     const textToCopy = `
 レビューをお願いします！
 
 ■レビュー対象
-${review.url}
+${stage.targetUrl}
 
 ■レビュアー
 ${reviewers}
@@ -190,7 +207,6 @@ ${reviewUrl}
     }
   };
 
-  // CommentListに渡すonReplyハンドラ
   const handleReply = async (parentCommentId: string, content: string) => {
     await handleCommentSubmit(content, parentCommentId);
   };
@@ -198,13 +214,14 @@ ${reviewUrl}
   if (error) return <div className="card" style={{ color: 'red' }}>Error: {error}</div>;
   if (!review) return <div>Loading...</div>;
 
-  const activeStage = review.stages.find(s => s.id === activeStageId);
-
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <div>
             <h1 style={{ marginBottom: '0.25rem' }}>{review.title}</h1>
+            <p style={{ margin: 0, color: 'var(--secondary-color)' }}>
+                <strong>対象案件の概要/リンク:</strong> <a href={review.descriptionUrl} target="_blank" rel="noopener noreferrer">{review.descriptionUrl}</a>
+            </p>
             <p style={{ margin: 0, color: 'var(--secondary-color)' }}>
                 依頼者: <strong>{review.author.name}</strong> / 作成日時: {new Date(review.createdAt).toLocaleString()}
             </p>

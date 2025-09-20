@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS review_requests (
     id VARCHAR(255) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
-    url TEXT,
+    description_url TEXT,
     author_id VARCHAR(255) NOT NULL REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS review_stages (
     review_request_id VARCHAR(255) NOT NULL REFERENCES review_requests(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     stage_order INTEGER NOT NULL,
-    repository_url VARCHAR(255),
+    target_url VARCHAR(255),
     reviewer_count INTEGER,
     due_date DATE
 );

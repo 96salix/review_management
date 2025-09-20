@@ -7,7 +7,7 @@ import { addAuthHeader } from '../utils/api';
 interface StageFormState {
   id: string | number;
   name: string;
-  repositoryUrl: string;
+  targetUrl: string;
   reviewerIds: string[];
   reviewerCount: number;
   dueDate: string;
@@ -17,7 +17,7 @@ function EditReview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
-  const [url, setUrl] = useState('');
+  const [descriptionUrl, setDescriptionUrl] = useState('');
   const [stages, setStages] = useState<StageFormState[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [stageTemplates, setStageTemplates] = useState<StageTemplate[]>([]);
@@ -57,11 +57,11 @@ function EditReview() {
         if (!response.ok) throw new Error('Review not found');
         const data: ReviewRequest = await response.json();
         setTitle(data.title);
-        setUrl(data.url);
+        setDescriptionUrl(data.descriptionUrl);
         setStages(data.stages.map(s => ({
           id: s.id,
           name: s.name,
-          repositoryUrl: s.repositoryUrl,
+          targetUrl: s.targetUrl,
           reviewerIds: s.assignments.map(a => a.reviewer.id),
           reviewerCount: s.reviewerCount || s.assignments.length,
           dueDate: s.dueDate ? new Date(s.dueDate).toISOString().split('T')[0] : '',
@@ -84,7 +84,7 @@ function EditReview() {
         setStages(selectedTemplate.stages.map((s, index) => ({
           id: Date.now() + index,
           name: s.name,
-          repositoryUrl: '',
+          targetUrl: '',
           reviewerIds: s.reviewerIds,
           reviewerCount: s.reviewerIds.length,
           dueDate: ''
@@ -102,7 +102,7 @@ function EditReview() {
   };
 
   const addStage = () => {
-    setStages([...stages, { id: Date.now(), name: '', repositoryUrl: '', reviewerIds: [], reviewerCount: 3, dueDate: '' }]);
+    setStages([...stages, { id: Date.now(), name: '', targetUrl: '', reviewerIds: [], reviewerCount: 3, dueDate: '' }]);
   };
 
   const removeStage = (index: number) => {
@@ -152,7 +152,7 @@ function EditReview() {
     const apiStages = stages.map((stage) => ({
       id: String(stage.id),
       name: stage.name,
-      repositoryUrl: stage.repositoryUrl,
+      targetUrl: stage.targetUrl,
       reviewerCount: stage.reviewerCount,
       dueDate: stage.dueDate || null,
       assignments: stage.reviewerIds.map(reviewerId => ({
@@ -166,7 +166,7 @@ function EditReview() {
       const response = await fetch(`/api/reviews/${id}`, addAuthHeader({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, url, stages: apiStages }),
+        body: JSON.stringify({ title, descriptionUrl, stages: apiStages }),
       }));
 
       if (!response.ok) {
@@ -199,12 +199,12 @@ function EditReview() {
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
-          <label htmlFor="url">レビュー対象URL</label>
+          <label htmlFor="descriptionUrl">対象案件の概要/リンク</label>
           <input
-            id="url"
+            id="descriptionUrl"
             type="text"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            value={descriptionUrl}
+            onChange={(e) => setDescriptionUrl(e.target.value)}
           />
         </div>
 
@@ -238,11 +238,11 @@ function EditReview() {
               />
             </div>
             <div style={{ marginBottom: '0.75rem' }}>
-              <label>リポジトリURL</label>
+              <label>レビュー対象</label>
               <input
                 type="text"
-                value={stage.repositoryUrl}
-                onChange={(e) => handleStageChange(index, 'repositoryUrl', e.target.value)}
+                value={stage.targetUrl}
+                onChange={(e) => handleStageChange(index, 'targetUrl', e.target.value)}
               />
             </div>
             <div style={{ marginBottom: '0.75rem' }}>

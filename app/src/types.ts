@@ -45,9 +45,10 @@ export interface ActivityLog {
 export interface ReviewStage {
   id: string;
   name: string;
+  stage_order: number;
   assignments: ReviewAssignment[];
   comments: Comment[];
-  repositoryUrl: string;
+  targetUrl: string;
   reviewerCount: number;
   dueDate?: string;
 }
@@ -56,7 +57,7 @@ export interface ReviewStage {
 export interface ReviewRequest {
   id: string;
   title: string;
-  url: string;
+  descriptionUrl: string;
   author: User;
   createdAt: string;
   stages: ReviewStage[];

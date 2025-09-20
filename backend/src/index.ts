@@ -86,7 +86,7 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
       id: stageRow.id,
       name: stageRow.name,
       stage_order: stageRow.stage_order,
-      repositoryUrl: stageRow.repository_url,
+      targetUrl: stageRow.target_url,
       reviewerCount: stageRow.reviewer_count,
       dueDate: stageRow.due_date, // dueDate を追加
       assignments: assignments,
@@ -110,7 +110,7 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
   return {
     id: reviewRow.id,
     title: reviewRow.title,
-    url: reviewRow.url,
+    descriptionUrl: reviewRow.description_url,
     author: author,
     createdAt: reviewRow.created_at,
     stages: stages,
@@ -293,23 +293,23 @@ app.get('/api/reviews/:id', async (req, res) => {
 app.post('/api/reviews', async (req, res) => {
     // @ts-ignore
     const currentUser = req.currentUser as User;
-    const { title, url, stages } = req.body;
+    const { title, descriptionUrl, stages } = req.body;
     const newReviewId = uuidv4();
     const createdAt = new Date().toISOString();
 
     try {
         // Insert into review_requests table
         await pool.query(
-            'INSERT INTO review_requests (id, title, url, author_id, created_at) VALUES ($1, $2, $3, $4, $5)',
-            [newReviewId, title, url, currentUser.id, createdAt]
+            'INSERT INTO review_requests (id, title, description_url, author_id, created_at) VALUES ($1, $2, $3, $4, $5)',
+            [newReviewId, title, descriptionUrl, currentUser.id, createdAt]
         );
 
         // Insert stages and their assignments/comments (simplified for now)
         for (const [index, stage] of stages.entries()) {
             const newStageId = uuidv4();
             await pool.query(
-                'INSERT INTO review_stages (id, review_request_id, name, stage_order, repository_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-                [newStageId, newReviewId, stage.name, index, stage.repositoryUrl, stage.reviewerCount, stage.dueDate]
+                'INSERT INTO review_stages (id, review_request_id, name, stage_order, target_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                [newStageId, newReviewId, stage.name, index, stage.targetUrl, stage.reviewerCount, stage.dueDate]
             );
 
             for (const assignment of stage.assignments) {
@@ -334,7 +334,7 @@ app.post('/api/reviews', async (req, res) => {
         res.status(201).json({
             id: newReview.id,
             title: newReview.title,
-            url: newReview.url,
+            descriptionUrl: newReview.description_url,
             author: currentUser, // Assuming currentUser is the author
             createdAt: newReview.created_at,
             stages: [], // Stages will be fetched later
@@ -350,13 +350,13 @@ app.post('/api/reviews', async (req, res) => {
 // PUT /api/reviews/:id
 app.put('/api/reviews/:id', async (req, res) => {
     const { id } = req.params;
-    const { title, url, stages } = req.body;
+    const { title, descriptionUrl, stages } = req.body;
 
     try {
         // Update review_requests table
         const updateReviewResult = await pool.query(
-            'UPDATE review_requests SET title = $1, url = $2 WHERE id = $3 RETURNING *',
-            [title, url, id]
+            'UPDATE review_requests SET title = $1, description_url = $2 WHERE id = $3 RETURNING *',
+            [title, descriptionUrl, id]
         );
 
         if (updateReviewResult.rows.length === 0) {
@@ -372,8 +372,8 @@ app.put('/api/reviews/:id', async (req, res) => {
         for (const [index, stage] of stages.entries()) {
             const newStageId = uuidv4();
             await pool.query(
-                'INSERT INTO review_stages (id, review_request_id, name, stage_order, repository_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-                [newStageId, id, stage.name, index, stage.repositoryUrl, stage.reviewerCount, stage.dueDate]
+                'INSERT INTO review_stages (id, review_request_id, name, stage_order, target_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                [newStageId, id, stage.name, index, stage.targetUrl, stage.reviewerCount, stage.dueDate]
             );
 
             for (const assignment of stage.assignments) {

@@ -41,7 +41,7 @@ export interface ReviewStage {
   stage_order: number;
   assignments: ReviewAssignment[];
   comments: Comment[];
-  repositoryUrl: string;
+  targetUrl: string;
   reviewerCount: number;
   dueDate?: string; // レビュー期日
 }
@@ -60,7 +60,7 @@ export interface ActivityLog {
 export interface ReviewRequest {
   id: string;
   title: string;
-  url: string;
+  descriptionUrl: string;
   author: User;
   createdAt: string;
   stages: ReviewStage[];

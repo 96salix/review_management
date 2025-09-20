@@ -138,4 +138,3 @@ label {
 .status-selector button.commented.active { background-color: #dc3545; }
 .status-selector button.answered.active { background-color: #007bff; } /* Primary color for answered */
 .status-selector button.lgtm.active { background-color: #28a745; } /* Green for LGTM */
-
