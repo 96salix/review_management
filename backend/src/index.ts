@@ -182,12 +182,14 @@ app.use(async (req, res, next) => {
 
 // GET /api/reviews
 app.get('/api/reviews', async (req, res) => {
-  const { sortBy = 'createdAt', order = 'desc' } = req.query;
+  const { sortBy = 'createdAt', order = 'desc', page = '1', limit = '10' } = req.query;
+  const pageNumber = parseInt(page as string, 10);
+  const limitNumber = parseInt(limit as string, 10);
+  const offset = (pageNumber - 1) * limitNumber;
 
   try {
     let orderByClause;
     if (sortBy === 'dueDate') {
-      // 各レビュー依頼の最も早い期日を計算し、それでソートする
       orderByClause = `(
         SELECT MIN(due_date)
         FROM review_stages
@@ -197,17 +199,25 @@ app.get('/api/reviews', async (req, res) => {
       orderByClause = `created_at ${order}`;
     }
 
+    const totalResult = await pool.query('SELECT COUNT(*) FROM review_requests');
+    const totalCount = parseInt(totalResult.rows[0].count, 10);
+
     const result = await pool.query(`
       SELECT id
       FROM review_requests
       ORDER BY ${orderByClause}
-    `);
+      LIMIT $1 OFFSET $2
+    `, [limitNumber, offset]);
 
     const reviewsData = await Promise.all(result.rows.map(async row => {
       const review = await fetchReviewDetails(row.id);
       return review;
     }));
-    res.json(reviewsData.filter(Boolean));
+
+    res.json({
+      reviews: reviewsData.filter(Boolean),
+      totalCount,
+    });
   } catch (err) {
     console.error('Error fetching reviews', err);
     res.status(500).send('Internal Server Error');
@@ -222,7 +232,10 @@ app.get('/api/reviews/my', async (req, res) => {
     return res.status(401).send('Unauthorized');
   }
 
-  const { sortBy = 'createdAt', order = 'desc' } = req.query;
+  const { sortBy = 'createdAt', order = 'desc', page = '1', limit = '10' } = req.query;
+  const pageNumber = parseInt(page as string, 10);
+  const limitNumber = parseInt(limit as string, 10);
+  const offset = (pageNumber - 1) * limitNumber;
 
   try {
     let orderByClause;
@@ -232,6 +245,10 @@ app.get('/api/reviews/my', async (req, res) => {
       orderByClause = `created_at ${order}`;
     }
 
+    // Count total reviews for the user
+    const totalResult = await pool.query('SELECT COUNT(DISTINCT r.id) FROM review_requests r JOIN review_stages s ON r.id = s.review_request_id JOIN review_assignments a ON s.id = a.review_stage_id WHERE a.reviewer_id = $1', [currentUser.id]);
+    const totalCount = parseInt(totalResult.rows[0].count, 10);
+
     const result = await pool.query(`
       SELECT r.id, r.created_at, MIN(s.due_date) as min_due_date
       FROM review_requests r
@@ -240,13 +257,17 @@ app.get('/api/reviews/my', async (req, res) => {
       WHERE a.reviewer_id = $1
       GROUP BY r.id, r.created_at
       ORDER BY ${orderByClause}
-    `, [currentUser.id]);
+      LIMIT $2 OFFSET $3
+    `, [currentUser.id, limitNumber, offset]);
 
     const reviewsData = await Promise.all(result.rows.map(async row => {
       return await fetchReviewDetails(row.id);
     }));
 
-    res.json(reviewsData.filter(Boolean));
+    res.json({
+      reviews: reviewsData.filter(Boolean),
+      totalCount,
+    });
   } catch (err) {
     console.error('Error fetching my reviews', err);
     res.status(500).send('Internal Server Error');

@@ -5,7 +5,7 @@ import { ReviewRequest, ReviewAssignment, ReviewStage, ReviewStatusValue } from 
 import StatusSelector from '../components/StatusSelector'; // Import StatusSelector
 import { addAuthHeader } from '../utils/api';
 
-
+const LIMIT = 10;
 
 function MyReviews() {
   const [reviews, setReviews] = useState<ReviewRequest[]>([]);
@@ -13,6 +13,8 @@ function MyReviews() {
   const [sortBy, setSortBy] = useState('createdAt');
   const [order, setOrder] = useState('desc');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     const storedUserId = localStorage.getItem('currentUserId');
@@ -26,12 +28,13 @@ function MyReviews() {
 
     const fetchMyReviews = async () => {
       try {
-        const response = await fetch(`/api/reviews/my?sortBy=${sortBy}&order=${order}`, addAuthHeader());
+        const response = await fetch(`/api/reviews/my?sortBy=${sortBy}&order=${order}&page=${currentPage}&limit=${LIMIT}`, addAuthHeader());
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
         const data = await response.json();
-        setReviews(data);
+        setReviews(data.reviews);
+        setTotalCount(data.totalCount);
       } catch (error) {
         if (error instanceof Error) {
             setError(error.message);
@@ -42,7 +45,7 @@ function MyReviews() {
     };
 
     fetchMyReviews();
-  }, [currentUserId, sortBy, order]);
+  }, [currentUserId, sortBy, order, currentPage]);
 
   const handleStatusChange = async (reviewId: string, stageId: string, newStatus: ReviewStatusValue) => {
     try {
@@ -81,6 +84,8 @@ function MyReviews() {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
   };
+
+  const totalPages = Math.ceil(totalCount / LIMIT);
 
   if (error) {
     return <div className="card" style={{ color: 'red' }}>Error: {error}</div>;
@@ -127,6 +132,7 @@ function MyReviews() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                       <div>
                           <p style={{ margin: 0 }}><strong>ステージ:</strong> {stage.name}</p>
+                          {stage.dueDate && <p style={{ margin: '0.5rem 0 0 0', color: 'var(--secondary-color)' }}>期日: {new Date(stage.dueDate).toLocaleDateString()}</p>}
                           <p style={{ margin: '0.5rem 0' }}>
                               <strong>URL:</strong> <a href={stage.repositoryUrl} target="_blank" rel="noopener noreferrer">{stage.repositoryUrl}</a>
                           </p>
@@ -144,6 +150,17 @@ function MyReviews() {
             </div>
           );
         }) : <p>担当するレビューはありません。</p>}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '1rem' }}>
+        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+          前へ
+        </button>
+        <span style={{ margin: '0 1rem' }}>
+          {currentPage} / {totalPages}
+        </span>
+        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+          次へ
+        </button>
       </div>
     </div>
   );

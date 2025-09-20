@@ -3,21 +3,26 @@ import { Link } from 'react-router-dom';
 import { ReviewRequest } from '../types';
 import { addAuthHeader } from '../utils/api';
 
+const LIMIT = 10;
+
 function ReviewList() {
   const [reviews, setReviews] = useState<ReviewRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('createdAt');
   const [order, setOrder] = useState('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const response = await fetch(`/api/reviews?sortBy=${sortBy}&order=${order}`, addAuthHeader());
+        const response = await fetch(`/api/reviews?sortBy=${sortBy}&order=${order}&page=${currentPage}&limit=${LIMIT}`, addAuthHeader());
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
         const data = await response.json();
-        setReviews(data);
+        setReviews(data.reviews);
+        setTotalCount(data.totalCount);
       } catch (error) {
         if (error instanceof Error) {
             setError(error.message);
@@ -28,7 +33,9 @@ function ReviewList() {
     };
 
     fetchReviews();
-  }, [sortBy, order]);
+  }, [sortBy, order, currentPage]);
+
+  const totalPages = Math.ceil(totalCount / LIMIT);
 
   if (error) {
     return <div className="card" style={{ color: 'red' }}>Error: {error}</div>;
@@ -90,6 +97,17 @@ function ReviewList() {
             </div>
           );
         })}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '1rem' }}>
+        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+          前へ
+        </button>
+        <span style={{ margin: '0 1rem' }}>
+          {currentPage} / {totalPages}
+        </span>
+        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+          次へ
+        </button>
       </div>
     </div>
   );
