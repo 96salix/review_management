@@ -14,8 +14,9 @@ CREATE TABLE IF NOT EXISTS review_requests (
 
 CREATE TABLE IF NOT EXISTS review_stages (
     id VARCHAR(255) PRIMARY KEY,
-    review_request_id VARCHAR(255) NOT NULL REFERENCES review_requests(id),
+    review_request_id VARCHAR(255) NOT NULL REFERENCES review_requests(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
+    stage_order INTEGER NOT NULL,
     repository_url VARCHAR(255),
     reviewer_count INTEGER,
     due_date DATE
@@ -55,8 +56,9 @@ CREATE TABLE IF NOT EXISTS stage_templates (
 
 CREATE TABLE IF NOT EXISTS template_stages (
     id VARCHAR(255) PRIMARY KEY,
-    stage_template_id VARCHAR(255) NOT NULL REFERENCES stage_templates(id),
+    stage_template_id VARCHAR(255) NOT NULL REFERENCES stage_templates(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
+    stage_order INTEGER NOT NULL,
     reviewer_ids TEXT[] NOT NULL,
     reviewer_count INTEGER
 );

@@ -24,7 +24,7 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
   const authorResult = await pool.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [reviewRow.author_id]);
   const author = authorResult.rows[0] || { id: reviewRow.author_id, name: 'Unknown User', avatarUrl: '' };
 
-  const stagesResult = await pool.query('SELECT * FROM review_stages WHERE review_request_id = $1 ORDER BY name', [reviewId]);
+  const stagesResult = await pool.query('SELECT * FROM review_stages WHERE review_request_id = $1 ORDER BY stage_order', [reviewId]);
   const stages: ReviewStage[] = await Promise.all(stagesResult.rows.map(async stageRow => {
     const assignmentsResult = await pool.query(`
       SELECT ra.*, u.name AS reviewer_name, u.avatar_url AS reviewer_avatar_url
@@ -123,7 +123,7 @@ async function fetchStageTemplateDetails(templateId: string): Promise<StageTempl
   }
   const templateRow = templateResult.rows[0];
 
-  const stagesResult = await pool.query('SELECT * FROM template_stages WHERE stage_template_id = $1 ORDER BY name', [templateId]);
+  const stagesResult = await pool.query('SELECT * FROM template_stages WHERE stage_template_id = $1 ORDER BY stage_order', [templateId]);
   const stages: TemplateStage[] = stagesResult.rows.map(stageRow => ({
     name: stageRow.name,
     reviewerIds: stageRow.reviewer_ids,
@@ -274,11 +274,11 @@ app.post('/api/reviews', async (req, res) => {
         );
 
         // Insert stages and their assignments/comments (simplified for now)
-        for (const stage of stages) {
+        for (const [index, stage] of stages.entries()) {
             const newStageId = uuidv4();
             await pool.query(
-                'INSERT INTO review_stages (id, review_request_id, name, repository_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6)',
-                [newStageId, newReviewId, stage.name, stage.repositoryUrl, stage.reviewerCount, stage.dueDate]
+                'INSERT INTO review_stages (id, review_request_id, name, stage_order, repository_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                [newStageId, newReviewId, stage.name, index, stage.repositoryUrl, stage.reviewerCount, stage.dueDate]
             );
 
             for (const assignment of stage.assignments) {
@@ -338,11 +338,11 @@ app.put('/api/reviews/:id', async (req, res) => {
         await pool.query('DELETE FROM review_stages WHERE review_request_id = $1', [id]);
 
         // Insert new stages and their assignments
-        for (const stage of stages) {
+        for (const [index, stage] of stages.entries()) {
             const newStageId = uuidv4();
             await pool.query(
-                'INSERT INTO review_stages (id, review_request_id, name, repository_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6)',
-                [newStageId, id, stage.name, stage.repositoryUrl, stage.reviewerCount, stage.dueDate]
+                'INSERT INTO review_stages (id, review_request_id, name, stage_order, repository_url, reviewer_count, due_date) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                [newStageId, id, stage.name, index, stage.repositoryUrl, stage.reviewerCount, stage.dueDate]
             );
 
             for (const assignment of stage.assignments) {
@@ -565,10 +565,10 @@ app.post('/api/stage-templates', async (req, res) => {
     );
 
     // Insert template stages
-    for (const stage of stages) {
+    for (const [index, stage] of stages.entries()) {
       await pool.query(
-        'INSERT INTO template_stages (id, stage_template_id, name, reviewer_ids, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
-        [uuidv4(), newTemplateId, stage.name, stage.reviewerIds, stage.reviewerCount]
+        'INSERT INTO template_stages (id, stage_template_id, name, stage_order, reviewer_ids, reviewer_count) VALUES ($1, $2, $3, $4, $5, $6)',
+        [uuidv4(), newTemplateId, stage.name, index, stage.reviewerIds, stage.reviewerCount]
       );
     }
 
@@ -610,10 +610,10 @@ app.put('/api/stage-templates/:id', async (req, res) => {
     await pool.query('DELETE FROM template_stages WHERE stage_template_id = $1', [id]);
 
     // Insert new template stages
-    for (const stage of stages) {
+    for (const [index, stage] of stages.entries()) {
       await pool.query(
-        'INSERT INTO template_stages (id, stage_template_id, name, reviewer_ids, reviewer_count) VALUES ($1, $2, $3, $4, $5)',
-        [uuidv4(), id, stage.name, stage.reviewerIds, stage.reviewerCount]
+        'INSERT INTO template_stages (id, stage_template_id, name, stage_order, reviewer_ids, reviewer_count) VALUES ($1, $2, $3, $4, $5, $6)',
+        [uuidv4(), id, stage.name, index, stage.reviewerIds, stage.reviewerCount]
       );
     }
 
