@@ -38,6 +38,7 @@ export interface Comment {
 export interface ReviewStage {
   id: string;
   name: string; // e.g., "1st Round", "Security Check"
+  stage_order: number;
   assignments: ReviewAssignment[];
   comments: Comment[];
   repositoryUrl: string;
@@ -73,6 +74,7 @@ export interface TemplateStage {
   name: string;
   reviewerIds: string[];
   reviewerCount: number;
+  stage_order: number;
 }
 
 // ステージテンプレート

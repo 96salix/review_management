@@ -5,6 +5,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { pool, connectDb } from './db';
 import settingsRouter from './routes/settings';
 
+// Development-only routes
+if (process.env.NODE_ENV !== 'production') {
+  console.log('Development routes enabled');
+  import('./routes/dev').then(devRouter => {
+    app.use('/api/dev', devRouter.default);
+  });
+}
+
 const app = express();
 const port = 3001;
 
@@ -77,6 +85,7 @@ async function fetchReviewDetails(reviewId: string): Promise<ReviewRequest | nul
     return {
       id: stageRow.id,
       name: stageRow.name,
+      stage_order: stageRow.stage_order,
       repositoryUrl: stageRow.repository_url,
       reviewerCount: stageRow.reviewer_count,
       dueDate: stageRow.due_date, // dueDate を追加
@@ -128,6 +137,7 @@ async function fetchStageTemplateDetails(templateId: string): Promise<StageTempl
     name: stageRow.name,
     reviewerIds: stageRow.reviewer_ids,
     reviewerCount: stageRow.reviewer_count,
+    stage_order: stageRow.stage_order,
   }));
 
   return {

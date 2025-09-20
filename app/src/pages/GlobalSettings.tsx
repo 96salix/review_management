@@ -55,6 +55,32 @@ function GlobalSettingsPage() {
         setSettings(prev => prev ? { ...prev, [name]: name === 'defaultReviewerCount' ? parseInt(value, 10) : value } : null);
     };
 
+    const handleSeedDatabase = async () => {
+        if (!window.confirm('本当にデータベースを初期化してよろしいですか？現在のデータはすべて失われます。')) {
+            return;
+        }
+
+        try {
+            setError(null);
+            setSuccessMessage('データベースを初期化しています...');
+            const response = await fetch('/api/dev/seed', addAuthHeader({
+                method: 'POST',
+            }));
+
+            if (!response.ok) {
+                throw new Error('データベースの初期化に失敗しました。');
+            }
+
+            setSuccessMessage('データベースの初期化が完了しました。');
+            setTimeout(() => setSuccessMessage(null), 5000);
+            // Optionally, refresh the page or settings data
+            window.location.reload();
+        } catch (err) {
+            setSuccessMessage(null);
+            setError(err instanceof Error ? err.message : '不明なエラーが発生しました。');
+        }
+    };
+
     if (isLoading) {
         return <div>読み込み中...</div>;
     }
@@ -96,6 +122,19 @@ function GlobalSettingsPage() {
                         </p>
                     </div>
                     <button onClick={handleSave}>設定を保存</button>
+                </div>
+            )}
+
+            {/* Development-only seed button */}
+            {process.env.NODE_ENV === 'development' && (
+                <div style={{ marginTop: '2rem', borderTop: '1px solid #ccc', paddingTop: '1rem' }}>
+                    <h2>開発者向けツール</h2>
+                    <p style={{ fontSize: '0.8rem', color: '#666' }}>
+                        現在のデータベースをクリアし、テスト用のサンプルデータを投入します。
+                    </p>
+                    <button onClick={handleSeedDatabase} style={{ backgroundColor: '#dc3545' }}>
+                        テストデータを投入
+                    </button>
                 </div>
             )}
         </div>
