@@ -66,7 +66,8 @@ CREATE TABLE IF NOT EXISTS template_stages (
 CREATE TABLE IF NOT EXISTS global_settings (
     id INT PRIMARY KEY,
     service_domain VARCHAR(255),
-    default_reviewer_count INTEGER
+    default_reviewer_count INTEGER,
+    slack_share_message_template TEXT
 );
 
-INSERT INTO global_settings (id, service_domain, default_reviewer_count) VALUES (1, 'http://localhost:5174', 3) ON CONFLICT (id) DO NOTHING;
+INSERT INTO global_settings (id, service_domain, default_reviewer_count, slack_share_message_template) VALUES (1, 'http://localhost:5174', 3, 'レビューをお願いします！\n\n■レビュー対象\n{targetUrl}\n\n■レビュアー\n{reviewers}\n\n■レビュー詳細\n{reviewUrl}') ON CONFLICT (id) DO NOTHING;

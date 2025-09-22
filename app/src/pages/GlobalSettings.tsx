@@ -121,6 +121,23 @@ function GlobalSettingsPage() {
                             新規レビュー依頼でステージを追加する際の、デフォルトのレビュアー数を設定します。
                         </p>
                     </div>
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label htmlFor="slackShareMessageTemplate">Slack投稿メッセージテンプレート</label>
+                        <textarea
+                            id="slackShareMessageTemplate"
+                            name="slackShareMessageTemplate"
+                            value={settings.slackShareMessageTemplate}
+                            onChange={(e) => handleChange(e as React.ChangeEvent<HTMLInputElement>)}
+                            rows={10}
+                            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: 'var(--border-radius)' }}
+                        />
+                        <p style={{ fontSize: '0.8rem', color: '#666' }}>
+                            Slack投稿時に利用されるメッセージのテンプレートです。以下のプレースホルダーが利用可能です。<br/>
+                            <code>{'{targetUrl}'}</code>: レビュー対象URL<br/>
+                            <code>{'{reviewers}'}</code>: レビュアーリスト (@ユーザー名 形式)<br/>
+                            <code>{'{reviewUrl}'}</code>: レビュー詳細ページのURL
+                        </p>
+                    </div>
                     <button onClick={handleSave}>設定を保存</button>
                 </div>
             )}

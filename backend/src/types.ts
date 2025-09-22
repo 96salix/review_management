@@ -89,4 +89,5 @@ export interface StageTemplate {
 export interface GlobalSettings {
   serviceDomain: string;
   defaultReviewerCount: number;
+  slackShareMessageTemplate: string;
 }

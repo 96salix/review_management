@@ -182,18 +182,22 @@ function ReviewDetail() {
 
     const reviewers = stage.assignments.map(a => `@${a.reviewer.name}`).join(' ');
     const reviewUrl = settings?.serviceDomain ? `${settings.serviceDomain}/reviews/${review.id}?stage=${stage.stage_order + 1}` : `${window.location.origin}/reviews/${review.id}?stage=${stage.stage_order + 1}`;
-    const textToCopy = `
-レビューをお願いします！
+    const template = settings?.slackShareMessageTemplate || 
+`レビューをお願いします！
 
 ■レビュー対象
-${stage.targetUrl}
+{targetUrl}
 
 ■レビュアー
-${reviewers}
+{reviewers}
 
 ■レビュー詳細
-${reviewUrl}
-    `;
+{reviewUrl}`;
+
+    const textToCopy = template
+      .replace('{targetUrl}', stage.targetUrl)
+      .replace('{reviewers}', reviewers)
+      .replace('{reviewUrl}', reviewUrl);
 
     setNewComment(textToCopy.trim());
   };
